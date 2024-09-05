@@ -1,0 +1,4 @@
+%{
+  "avm_scene": {:git, "https://github.com/AtomVM/avm_scene.git", "4e8846097daa5e1508a5fd831c36c1d6485b1952", []},
+  "exatomvm": {:git, "https://github.com/AtomVM/exatomvm.git", "14b780aaa5103981da2523e3889174a0295600f0", []},
+}
