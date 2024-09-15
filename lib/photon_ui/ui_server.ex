@@ -63,6 +63,15 @@ defmodule PhotonUI.UIServer do
     {:port, disp} = opts[:display_server]
     :port.call(disp, {:subscribe_input, :all})
 
+    case opts[:keyboard_server] do
+      nil ->
+        :ok
+
+      server ->
+        IO.puts("Subscribed to keyboard server.")
+        :gen_server.call(server, {:subscribe_input, :all})
+    end
+
     {:ok, {widgets, _initial_widget_state}, custom_state} = module.init(args)
 
     focus_list = build_focus_list(widgets)
