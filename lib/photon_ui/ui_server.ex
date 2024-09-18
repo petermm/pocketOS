@@ -22,16 +22,18 @@ defmodule PhotonUI.Widgets.ButtonState do
     {%ButtonState{button | state: :released}, [event: :clicked]}
   end
 
-  def handle_input(button, {:keyboard, :down, 10}, _ts) do
+  def handle_input(button, enter, _ts)
+      when enter in [{:keyboard, :down, 10}, {:keyboard, :down, 13}] do
     %ButtonState{button | state: :pressed}
   end
 
-  def handle_input(button, {:keyboard, :up, 13}, _ts) do
+  def handle_input(button, enter, _ts)
+      when enter in [{:keyboard, :up, 10}, {:keyboard, :up, 13}] do
     {%ButtonState{button | state: :released}, [event: :clicked]}
   end
 
-  def handle_input(_button, _event, _ts) do
-    :none
+  def handle_input(button, event, ts) do
+    PhotonUI.UIServer.default_input_handler(button, event, ts)
   end
 end
 
@@ -62,6 +64,16 @@ defmodule PhotonUI.Widgets.TextInputState do
     end
   end
 
+  def handle_input(_text_input_state, enter, _ts)
+      when enter in [{:keyboard, :down, 10}, {:keyboard, :down, 13}] do
+    :none
+  end
+
+  def handle_input(_text_input_state, enter, _ts)
+      when enter in [{:keyboard, :up, 10}, {:keyboard, :up, 13}] do
+    :release_focus
+  end
+
   def handle_input(text_input_state, {:keyboard, :down, code}, _ts) do
     %TextInputState{text: old_text, cursor_pos: old_cursor_pos} = text_input_state
 
@@ -71,8 +83,8 @@ defmodule PhotonUI.Widgets.TextInputState do
      [event: {:text_input, updated_text}]}
   end
 
-  def handle_input(_button, _event, _ts) do
-    :none
+  def handle_input(text_input_state, event, ts) do
+    PhotonUI.UIServer.default_input_handler(text_input_state, event, ts)
   end
 
   defp update_text(text, char, cursor_pos) do
@@ -195,22 +207,12 @@ defmodule PhotonUI.UIServer do
   end
 
   def handle_input(event_data, ts, _pid, state) do
-    {items, widget_state} = ui_server_state(state, :ui)
+    {_widgets, widget_state} = ui_server_state(state, :ui)
 
     case event_data do
       {:mouse, _mouse_evt, _button, x, y} ->
         find_mouse_area(widget_state[:"$mouse_area_list"], x, y)
         |> dispatch_input(event_data, ts, state)
-
-      {:keyboard, :up, 274} ->
-        new_focused_item =
-          find_next_focusable(widget_state[:"$focus_list"], widget_state[:"$focused_item"])
-
-        new_state = Map.put(widget_state, :"$focused_item", new_focused_item)
-
-        display_list = render(items, new_state)
-
-        {:noreply, ui_server_state(state, ui: {items, new_state}), [push: display_list]}
 
       {:keyboard, _up_down, _code} ->
         widget_state[:"$focused_item"]
@@ -256,6 +258,13 @@ defmodule PhotonUI.UIServer do
             end
             |> to_avm_scene_result(state)
 
+          {%^wdg_state_type{} = new_wdg_state, :release_focus} ->
+            new_widget_state = Map.put(widget_state, widget_name, new_wdg_state)
+            focus_next(ui_server_state(ui: {widgets, new_widget_state}))
+
+          :release_focus ->
+            focus_next(state)
+
           :none ->
             {:noreply, state}
         end
@@ -263,6 +272,27 @@ defmodule PhotonUI.UIServer do
       _other ->
         {:noreply, state}
     end
+  end
+
+  def default_input_handler(_widget, event, _ts) do
+    case event do
+      # SDL down arrow
+      {:keyboard, :up, 274} -> :release_focus
+      _ -> :none
+    end
+  end
+
+  defp focus_next(state) do
+    {items, widget_state} = ui_server_state(state, :ui)
+
+    new_focused_item =
+      find_next_focusable(widget_state[:"$focus_list"], widget_state[:"$focused_item"])
+
+    new_state = Map.put(widget_state, :"$focused_item", new_focused_item)
+
+    display_list = render(items, new_state)
+
+    {:noreply, ui_server_state(state, ui: {items, new_state}), [push: display_list]}
   end
 
   defp make_initial_state([], acc) do
