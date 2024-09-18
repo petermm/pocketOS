@@ -13,6 +13,18 @@ end
 
 defmodule PhotonUI.Widgets.ButtonState do
   defstruct state: :normal
+
+  def handle_input(button, {:mouse, :pressed, :left, _x, _y}, _ts) do
+    %ButtonState{button | state: :pressed}
+  end
+
+  def handle_input(button, {:mouse, :released, :left, _x, _y}, _ts) do
+    {%ButtonState{button | state: :released}, [event: :clicked]}
+  end
+
+  def handle_input(_button, _event, _ts) do
+    :none
+  end
 end
 
 defmodule PhotonUI.Widgets.Container do
@@ -40,6 +52,10 @@ defmodule PhotonUI.Widgets.TextInputState do
       :text ->
         %TextInputState{s | text: to_string(value), cursor_pos: 0}
     end
+  end
+
+  def handle_input(_button, _event, _ts) do
+    :none
   end
 end
 
@@ -144,38 +160,35 @@ defmodule PhotonUI.UIServer do
     |> to_avm_scene_result(state)
   end
 
-  def handle_input(event_data, _ts, _pid, state) do
+  def handle_input(event_data, ts, _pid, state) do
     module = ui_server_state(state, :module)
     {items, widget_state} = ui_server_state(state, :ui)
     widgets = items
     custom_state = ui_server_state(state, :custom_state)
 
     case event_data do
-      {:mouse, mouse_evt, :left, x, y} when mouse_evt in [:pressed, :released] ->
+      {:mouse, _mouse_evt, _button, x, y} ->
         widget_name = find_mouse_area(widget_state[:"$mouse_area_list"], x, y)
 
         case widget_state[widget_name] do
           nil ->
             {:noreply, state}
 
-          %ButtonState{} = button ->
-            case mouse_evt do
-              :pressed ->
-                new_widget_state =
-                  Map.put(widget_state, widget_name, %ButtonState{button | state: :pressed})
-
+          %wdg_state_type{} = wdg_state ->
+            case wdg_state_type.handle_input(wdg_state, event_data, ts) do
+              %^wdg_state_type{} = new_wdg_state ->
+                new_widget_state = Map.put(widget_state, widget_name, new_wdg_state)
                 display_list = render(widgets, new_widget_state)
 
                 {:noreply, ui_server_state(state, ui: {widgets, new_widget_state}),
                  [push: display_list]}
 
-              :released ->
-                new_widget_state =
-                  Map.put(widget_state, widget_name, %ButtonState{button | state: :normal})
+              {%^wdg_state_type{} = new_wdg_state, [event: wdg_event]} ->
+                new_widget_state = Map.put(widget_state, widget_name, new_wdg_state)
 
                 case module.handle_event(
                        widget_name,
-                       :clicked,
+                       wdg_event,
                        {widgets, new_widget_state},
                        custom_state
                      ) do
@@ -186,6 +199,9 @@ defmodule PhotonUI.UIServer do
                     t
                 end
                 |> to_avm_scene_result(state)
+
+              :none ->
+                {:noreply, state}
             end
 
           _other ->
