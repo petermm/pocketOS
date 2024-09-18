@@ -22,6 +22,14 @@ defmodule PhotonUI.Widgets.ButtonState do
     {%ButtonState{button | state: :released}, [event: :clicked]}
   end
 
+  def handle_input(button, {:keyboard, :down, 10}, _ts) do
+    %ButtonState{button | state: :pressed}
+  end
+
+  def handle_input(button, {:keyboard, :up, 13}, _ts) do
+    {%ButtonState{button | state: :released}, [event: :clicked]}
+  end
+
   def handle_input(_button, _event, _ts) do
     :none
   end
@@ -54,8 +62,34 @@ defmodule PhotonUI.Widgets.TextInputState do
     end
   end
 
+  def handle_input(text_input_state, {:keyboard, :down, code}, _ts) do
+    %TextInputState{text: old_text, cursor_pos: old_cursor_pos} = text_input_state
+
+    {updated_cursor_pos, updated_text} = update_text(old_text, code, old_cursor_pos)
+
+    {%TextInputState{text_input_state | text: updated_text, cursor_pos: updated_cursor_pos},
+     [event: {:text_input, updated_text}]}
+  end
+
   def handle_input(_button, _event, _ts) do
     :none
+  end
+
+  defp update_text(text, char, cursor_pos) do
+    case char do
+      8 ->
+        case text do
+          <<pre::binary-size(cursor_pos - 1), _remove::size(8), rest::binary>> ->
+            {cursor_pos - 1, <<pre::binary, rest::binary>>}
+
+          <<>> ->
+            {0, <<>>}
+        end
+
+      _ ->
+        <<pre::binary-size(cursor_pos), rest::binary>> = text
+        {cursor_pos + 1, <<pre::binary, char::size(8), rest::binary>>}
+    end
   end
 end
 
@@ -161,52 +195,12 @@ defmodule PhotonUI.UIServer do
   end
 
   def handle_input(event_data, ts, _pid, state) do
-    module = ui_server_state(state, :module)
     {items, widget_state} = ui_server_state(state, :ui)
-    widgets = items
-    custom_state = ui_server_state(state, :custom_state)
 
     case event_data do
       {:mouse, _mouse_evt, _button, x, y} ->
-        widget_name = find_mouse_area(widget_state[:"$mouse_area_list"], x, y)
-
-        case widget_state[widget_name] do
-          nil ->
-            {:noreply, state}
-
-          %wdg_state_type{} = wdg_state ->
-            case wdg_state_type.handle_input(wdg_state, event_data, ts) do
-              %^wdg_state_type{} = new_wdg_state ->
-                new_widget_state = Map.put(widget_state, widget_name, new_wdg_state)
-                display_list = render(widgets, new_widget_state)
-
-                {:noreply, ui_server_state(state, ui: {widgets, new_widget_state}),
-                 [push: display_list]}
-
-              {%^wdg_state_type{} = new_wdg_state, [event: wdg_event]} ->
-                new_widget_state = Map.put(widget_state, widget_name, new_wdg_state)
-
-                case module.handle_event(
-                       widget_name,
-                       wdg_event,
-                       {widgets, new_widget_state},
-                       custom_state
-                     ) do
-                  {:noreply, new_custom_state} ->
-                    {:noreply, {widgets, new_widget_state}, new_custom_state}
-
-                  {:noreply, _new_ui, _new_custom_state} = t ->
-                    t
-                end
-                |> to_avm_scene_result(state)
-
-              :none ->
-                {:noreply, state}
-            end
-
-          _other ->
-            {:noreply, state}
-        end
+        find_mouse_area(widget_state[:"$mouse_area_list"], x, y)
+        |> dispatch_input(event_data, ts, state)
 
       {:keyboard, :up, 274} ->
         new_focused_item =
@@ -218,89 +212,56 @@ defmodule PhotonUI.UIServer do
 
         {:noreply, ui_server_state(state, ui: {items, new_state}), [push: display_list]}
 
-      {:keyboard, up_down, code} ->
-        case widget_state[:"$focused_item"] do
-          nil ->
-            {:noreply, state}
-
-          focused ->
-            case widget_state[focused] do
-              %ButtonState{} = button ->
-                case event_data do
-                  {:keyboard, :down, 10} ->
-                    new_state =
-                      Map.put(widget_state, focused, %ButtonState{button | state: :pressed})
-
-                    display_list = render(items, new_state)
-
-                    {:noreply, ui_server_state(state, ui: {items, new_state}),
-                     [push: display_list]}
-
-                  {:keyboard, :up, 13} ->
-                    new_state =
-                      Map.put(widget_state, focused, %ButtonState{button | state: :normal})
-
-                    case module.handle_event(focused, :clicked, {items, new_state}, custom_state) do
-                      {:noreply, new_custom_state} ->
-                        {:noreply, {items, new_state}, new_custom_state}
-
-                      {:noreply, _new_ui, _new_custom_state} = t ->
-                        t
-                    end
-                    |> to_avm_scene_result(state)
-
-                  _ ->
-                    {:noreply, state}
-                end
-
-              %TextInputState{text: old_text, cursor_pos: old_cursor_pos} ->
-                if up_down == :down do
-                  {updated_cursor_pos, updated_text} = update_text(old_text, code, old_cursor_pos)
-
-                  new_state =
-                    Map.put(widget_state, focused, %TextInputState{
-                      text: updated_text,
-                      cursor_pos: updated_cursor_pos
-                    })
-
-                  case module.handle_event(
-                         focused,
-                         {:text_input, updated_text},
-                         {items, new_state},
-                         custom_state
-                       ) do
-                    {:noreply, new_custom_state} ->
-                      {:noreply, {items, new_state}, new_custom_state}
-
-                    {:noreply, _new_ui, _new_custom_state} = t ->
-                      t
-                  end
-                  |> to_avm_scene_result(state)
-                else
-                  {:noreply, state}
-                end
-            end
-        end
+      {:keyboard, _up_down, _code} ->
+        widget_state[:"$focused_item"]
+        |> dispatch_input(event_data, ts, state)
 
       _ ->
         {:noreply, state}
     end
   end
 
-  def update_text(text, char, cursor_pos) do
-    case char do
-      8 ->
-        case text do
-          <<pre::binary-size(cursor_pos - 1), _remove::size(8), rest::binary>> ->
-            {cursor_pos - 1, <<pre::binary, rest::binary>>}
+  defp dispatch_input(widget_name, event_data, ts, state) do
+    module = ui_server_state(state, :module)
+    {widgets, widget_state} = ui_server_state(state, :ui)
+    custom_state = ui_server_state(state, :custom_state)
 
-          <<>> ->
-            {0, <<>>}
+    case widget_state[widget_name] do
+      nil ->
+        {:noreply, state}
+
+      %wdg_state_type{} = wdg_state ->
+        case wdg_state_type.handle_input(wdg_state, event_data, ts) do
+          %^wdg_state_type{} = new_wdg_state ->
+            new_widget_state = Map.put(widget_state, widget_name, new_wdg_state)
+            display_list = render(widgets, new_widget_state)
+
+            {:noreply, ui_server_state(state, ui: {widgets, new_widget_state}),
+             [push: display_list]}
+
+          {%^wdg_state_type{} = new_wdg_state, [event: wdg_event]} ->
+            new_widget_state = Map.put(widget_state, widget_name, new_wdg_state)
+
+            case module.handle_event(
+                   widget_name,
+                   wdg_event,
+                   {widgets, new_widget_state},
+                   custom_state
+                 ) do
+              {:noreply, new_custom_state} ->
+                {:noreply, {widgets, new_widget_state}, new_custom_state}
+
+              {:noreply, _new_ui, _new_custom_state} = t ->
+                t
+            end
+            |> to_avm_scene_result(state)
+
+          :none ->
+            {:noreply, state}
         end
 
-      _ ->
-        <<pre::binary-size(cursor_pos), rest::binary>> = text
-        {cursor_pos + 1, <<pre::binary, char::size(8), rest::binary>>}
+      _other ->
+        {:noreply, state}
     end
   end
 
