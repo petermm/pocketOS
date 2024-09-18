@@ -211,6 +211,8 @@ defmodule PhotonUI.UIServer do
 
     case event_data do
       {:mouse, _mouse_evt, _button, x, y} ->
+        # TODO: propagate widget coordinates instead of screen coordinates
+        # this can be easily done by subtracting hit mouse area x and y
         find_mouse_area(widget_state[:"$mouse_area_list"], x, y)
         |> dispatch_input(event_data, ts, state)
 
