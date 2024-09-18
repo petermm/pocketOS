@@ -1,3 +1,4 @@
+alias PhotonUI.UIServer
 alias PhotonUI.Widgets.Button
 alias PhotonUI.Widgets.ButtonState
 alias PhotonUI.Widgets.Container
@@ -9,6 +10,37 @@ alias PhotonUI.Widgets.VerticalLayout
 
 defmodule PhotonUI.Widgets.Button do
   defstruct [:text, :x, :y, :width, :height]
+
+  def render(button, name, ui_state, origin_x, origin_y, acc) do
+    %Button{text: text, x: x, y: y, width: width, height: height} = button
+
+    x_pos = origin_x + x
+    y_pos = origin_y + y
+
+    # assuming default 16 px
+    text_width = byte_size(text) * 8
+
+    button_color =
+      case ui_state[name].state do
+        :pressed ->
+          0x0000FF
+
+        _ ->
+          if ui_state[:"$focused_item"] == name do
+            0x8080FF
+          else
+            0xFFFFFF
+          end
+      end
+
+    [
+      {:text, x_pos + 1 + div(width - text_width, 2), y_pos + div(height - 16, 2), :default16px,
+       0x000000, button_color, text},
+      {:rect, x_pos + 1, y_pos + 1, width - 2, height - 2, button_color},
+      {:rect, x_pos, y_pos, width, height, 0x000000}
+      | acc
+    ]
+  end
 end
 
 defmodule PhotonUI.Widgets.ButtonState do
@@ -39,18 +71,64 @@ end
 
 defmodule PhotonUI.Widgets.Container do
   defstruct [:x, :y, :width, :height, :children]
+
+  def render(container, _name, ui_state, origin_x, origin_y, acc) do
+    %Container{children: children, x: x, y: y} = container
+    UIServer.items_to_list(children, ui_state, origin_x + x, origin_y + y, acc)
+  end
 end
 
 defmodule PhotonUI.Widgets.HorizontalLayout do
   defstruct [:x, :y, :width, :height, :children, spacing: 0]
+
+  def render(h_layout, _name, ui_state, origin_x, origin_y, acc) do
+    %HorizontalLayout{children: children, x: x, y: y, spacing: spacing} = h_layout
+
+    {acc_with_children, _final_off} =
+      Enum.reduce(children, {acc, origin_x}, fn {_wn, %{x: wx, width: ww}} = item,
+                                                {rendered, x_off} ->
+        {UIServer.items_to_list([item], ui_state, x_off + x, origin_y + y, rendered),
+         x_off + wx + ww + spacing}
+      end)
+
+    acc_with_children
+  end
 end
 
 defmodule PhotonUI.Widgets.Text do
   defstruct [:x, :y, :width, :height, :text]
+
+  @bg_color 0xFFFFFF
+
+  def render(text_widget, _name, _ui_state, origin_x, origin_y, acc) do
+    %Text{text: text, x: x, y: y} = text_widget
+    [{:text, origin_x + x, origin_y + y, :default16px, 0x000000, @bg_color, text} | acc]
+  end
 end
 
 defmodule PhotonUI.Widgets.TextInput do
   defstruct [:x, :y, :width, :height]
+
+  @bg_color 0xFFFFFF
+
+  def render(text_input, name, ui_state, origin_x, origin_y, acc) do
+    %{x: x, y: y} = text_input
+    %{cursor_pos: cursor_pos, text: text} = ui_state[name]
+
+    x_pos = origin_x + x
+    y_pos = origin_y + y
+
+    list = [
+      {:text, x_pos, y_pos, :default16px, 0x000000, @bg_color, text}
+      | acc
+    ]
+
+    if ui_state[:"$focused_item"] == name do
+      [{:rect, x_pos + cursor_pos * 8, y_pos, 2, 16, 0x000000} | list]
+    else
+      list
+    end
+  end
 end
 
 defmodule PhotonUI.Widgets.TextInputState do
@@ -107,6 +185,19 @@ end
 
 defmodule PhotonUI.Widgets.VerticalLayout do
   defstruct [:x, :y, :width, :height, :children, spacing: 0]
+
+  def render(vertical_layout, _name, ui_state, origin_x, origin_y, acc) do
+    %VerticalLayout{children: children, x: x, y: y, spacing: spacing} = vertical_layout
+
+    {acc_with_children, _final_off} =
+      Enum.reduce(children, {acc, origin_y}, fn {_wn, %{y: wy, height: wh}} = item,
+                                                {rendered, y_off} ->
+        {UIServer.items_to_list([item], ui_state, origin_x + x, y_off + y, rendered),
+         y_off + wy + wh + spacing}
+      end)
+
+    acc_with_children
+  end
 end
 
 defmodule PhotonUI.UIServer do
@@ -318,125 +409,70 @@ defmodule PhotonUI.UIServer do
     make_initial_state(t, acc)
   end
 
-  defp items_to_list([], _state, _origin_x, _origin_y, acc) do
+  def items_to_list([], _state, _origin_x, _origin_y, acc) do
     acc
   end
 
-  defp items_to_list([{name, %Button{} = item} | t], state, origin_x, origin_y, acc) do
-    %Button{text: text, x: x, y: y, width: width, height: height} = item
-
-    x_pos = origin_x + x
-    y_pos = origin_y + y
-
-    # assuming default 16 px
-    text_width = byte_size(text) * 8
-
-    button_color =
-      case state[name][:state] do
-        :pressed ->
-          0x0000FF
-
-        _ ->
-          if state[:"$focused_item"] == name do
-            0x8080FF
-          else
-            0xFFFFFF
-          end
-      end
-
-    list = [
-      {:text, x_pos + 1 + div(width - text_width, 2), y_pos + div(height - 16, 2), :default16px,
-       0x000000, button_color, text},
-      {:rect, x_pos + 1, y_pos + 1, width - 2, height - 2, button_color},
-      {:rect, x_pos, y_pos, width, height, 0x000000}
-      | acc
-    ]
-
+  def items_to_list([{name, %Button{} = item} | t], state, origin_x, origin_y, acc) do
+    list = Button.render(item, name, state, origin_x, origin_y, acc)
     items_to_list(t, state, origin_x, origin_y, list)
   end
 
-  defp items_to_list(
-         [{_name, %Text{text: text, x: x, y: y}} | t],
-         state,
-         origin_x,
-         origin_y,
-         acc
-       ) do
+  def items_to_list(
+        [{_name, %Text{text: text, x: x, y: y}} | t],
+        state,
+        origin_x,
+        origin_y,
+        acc
+      ) do
     display_item = {:text, origin_x + x, origin_y + y, :default16px, 0x000000, @bg_color, text}
     list = [display_item | acc]
     items_to_list(t, state, origin_x, origin_y, list)
   end
 
-  defp items_to_list(
-         [{name, %TextInput{} = item} | t],
-         state,
-         origin_x,
-         origin_y,
-         acc
-       ) do
-    %{x: x, y: y} = item
-    %{cursor_pos: cursor_pos, text: text} = state[name]
-
-    x_pos = origin_x + x
-    y_pos = origin_y + y
-
-    list = [
-      {:text, x_pos, y_pos, :default16px, 0x000000, @bg_color, text}
-      | acc
-    ]
-
-    maybe_focused_list =
-      if state[:"$focused_item"] == name do
-        [{:rect, x_pos + cursor_pos * 8, y_pos, 2, 16, 0x000000} | list]
-      else
-        list
-      end
-
+  def items_to_list(
+        [{name, %TextInput{} = item} | t],
+        state,
+        origin_x,
+        origin_y,
+        acc
+      ) do
+    maybe_focused_list = TextInput.render(item, name, state, origin_x, origin_y, acc)
     items_to_list(t, state, origin_x, origin_y, maybe_focused_list)
   end
 
-  defp items_to_list(
-         [{_name, %Container{children: children, x: x, y: y}} | t],
-         state,
-         origin_x,
-         origin_y,
-         acc
-       ) do
-    children_list = items_to_list(children, state, origin_x + x, origin_y + y, [])
+  def items_to_list(
+        [{name, %Container{} = container} | t],
+        state,
+        origin_x,
+        origin_y,
+        acc
+      ) do
+    children_list = Container.render(container, name, state, origin_x, origin_y, [])
     items_to_list(t, state, origin_x, origin_y, children_list ++ acc)
   end
 
-  defp items_to_list(
-         [{_name, %HorizontalLayout{children: children, x: x, y: y, spacing: spacing}} | t],
-         state,
-         origin_x,
-         origin_y,
-         acc
-       ) do
-    {acc_with_children, _final_off} =
-      Enum.reduce(children, {acc, origin_x}, fn {_wn, %{x: wx, width: ww}} = item,
-                                                {rendered, x_off} ->
-        {items_to_list([item], state, x_off + x, origin_y + y, rendered),
-         x_off + wx + ww + spacing}
-      end)
+  def items_to_list(
+        [{name, %HorizontalLayout{} = horizontal_layout} | t],
+        state,
+        origin_x,
+        origin_y,
+        acc
+      ) do
+    acc_with_children =
+      HorizontalLayout.render(horizontal_layout, name, state, origin_x, origin_y, acc)
 
     items_to_list(t, state, origin_x, origin_y, acc_with_children)
   end
 
-  defp items_to_list(
-         [{_name, %VerticalLayout{children: children, x: x, y: y, spacing: spacing}} | t],
-         state,
-         origin_x,
-         origin_y,
-         acc
-       ) do
-    {acc_with_children, _final_off} =
-      Enum.reduce(children, {acc, origin_y}, fn {_wn, %{y: wy, height: wh}} = item,
-                                                {rendered, y_off} ->
-        {items_to_list([item], state, origin_x + x, y_off + y, rendered),
-         y_off + wy + wh + spacing}
-      end)
-
+  def items_to_list(
+        [{name, %VerticalLayout{} = item} | t],
+        state,
+        origin_x,
+        origin_y,
+        acc
+      ) do
+    acc_with_children = VerticalLayout.render(item, name, state, origin_x, origin_y, acc)
     items_to_list(t, state, origin_x, origin_y, acc_with_children)
   end
 
