@@ -413,67 +413,9 @@ defmodule PhotonUI.UIServer do
     acc
   end
 
-  def render_widgets([{name, %Button{} = item} | t], state, origin_x, origin_y, acc) do
-    list = Button.render(item, name, state, origin_x, origin_y, acc)
-    render_widgets(t, state, origin_x, origin_y, list)
-  end
-
-  def render_widgets(
-        [{_name, %Text{text: text, x: x, y: y}} | t],
-        state,
-        origin_x,
-        origin_y,
-        acc
-      ) do
-    display_item = {:text, origin_x + x, origin_y + y, :default16px, 0x000000, @bg_color, text}
-    list = [display_item | acc]
-    render_widgets(t, state, origin_x, origin_y, list)
-  end
-
-  def render_widgets(
-        [{name, %TextInput{} = item} | t],
-        state,
-        origin_x,
-        origin_y,
-        acc
-      ) do
-    maybe_focused_list = TextInput.render(item, name, state, origin_x, origin_y, acc)
-    render_widgets(t, state, origin_x, origin_y, maybe_focused_list)
-  end
-
-  def render_widgets(
-        [{name, %Container{} = container} | t],
-        state,
-        origin_x,
-        origin_y,
-        acc
-      ) do
-    children_list = Container.render(container, name, state, origin_x, origin_y, [])
-    render_widgets(t, state, origin_x, origin_y, children_list ++ acc)
-  end
-
-  def render_widgets(
-        [{name, %HorizontalLayout{} = horizontal_layout} | t],
-        state,
-        origin_x,
-        origin_y,
-        acc
-      ) do
-    acc_with_children =
-      HorizontalLayout.render(horizontal_layout, name, state, origin_x, origin_y, acc)
-
-    render_widgets(t, state, origin_x, origin_y, acc_with_children)
-  end
-
-  def render_widgets(
-        [{name, %VerticalLayout{} = item} | t],
-        state,
-        origin_x,
-        origin_y,
-        acc
-      ) do
-    acc_with_children = VerticalLayout.render(item, name, state, origin_x, origin_y, acc)
-    render_widgets(t, state, origin_x, origin_y, acc_with_children)
+  def render_widgets([{name, %widget_type{} = widget} | t], state, origin_x, origin_y, acc) do
+    new_rendered_acc = widget_type.render(widget, name, state, origin_x, origin_y, acc)
+    render_widgets(t, state, origin_x, origin_y, new_rendered_acc)
   end
 
   def build_mouse_area_list(widgets) do
