@@ -1,19 +1,21 @@
 defmodule Main do
-  @display_opts [
-    width: 320,
-    height: 240
-  ]
-
   def start() do
     :erlang.display("Hello.")
 
-    case :erlang.open_port({:spawn, "display"}, @display_opts) do
-      display when is_port(display) ->
-        opts = [{:display_server, {:port, display}} | @display_opts]
-        {:ok, _ui} = UI.start_link(opts, display_server: {:port, display})
+    with {:ok, initialized} <- HAL.init(),
+         %{display: initialized_display} <- initialized,
+         %{display_server: display_server, width: width, height: height} <- initialized_display do
+      opts = [
+        width: width,
+        height: height,
+        display_server: display_server,
+        keyboard_server: initialized_display[:keyboard_server]
+      ]
 
+      {:ok, _ui} = UI.start_link(opts, [display_server: display_server] ++ opts)
+    else
       _ ->
-        :io.format("Failed to open display")
+        IO.puts("Failed HAL init.")
     end
 
     recv_loop()

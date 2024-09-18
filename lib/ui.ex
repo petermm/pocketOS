@@ -32,7 +32,18 @@ defmodule UI do
   def handle_info(:show_settings, %{display_server: display} = state) do
     IO.puts("settings")
 
-    {:ok, settings} = UI.Settings.start_link(Enum.into(state, []), display_server: display)
+    # TODO: keyboard_server might be optional, let's handle it as optional
+    %{width: width, height: height, keyboard_server: keyboard_server} = state
+
+    # TODO: same here, keyboard_server might be optional
+    {:ok, settings} =
+      UI.Settings.start_link(Enum.into(state, []),
+        display_server: display,
+        height: height,
+        width: width,
+        keyboard_server: keyboard_server
+      )
+
     PhotonUI.UIServer.show(settings)
 
     {:noreply, state}
