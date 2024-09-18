@@ -74,7 +74,7 @@ defmodule PhotonUI.Widgets.Container do
 
   def render(container, _name, ui_state, origin_x, origin_y, acc) do
     %Container{children: children, x: x, y: y} = container
-    UIServer.items_to_list(children, ui_state, origin_x + x, origin_y + y, acc)
+    UIServer.render_widgets(children, ui_state, origin_x + x, origin_y + y, acc)
   end
 end
 
@@ -87,7 +87,7 @@ defmodule PhotonUI.Widgets.HorizontalLayout do
     {acc_with_children, _final_off} =
       Enum.reduce(children, {acc, origin_x}, fn {_wn, %{x: wx, width: ww}} = item,
                                                 {rendered, x_off} ->
-        {UIServer.items_to_list([item], ui_state, x_off + x, origin_y + y, rendered),
+        {UIServer.render_widgets([item], ui_state, x_off + x, origin_y + y, rendered),
          x_off + wx + ww + spacing}
       end)
 
@@ -192,7 +192,7 @@ defmodule PhotonUI.Widgets.VerticalLayout do
     {acc_with_children, _final_off} =
       Enum.reduce(children, {acc, origin_y}, fn {_wn, %{y: wy, height: wh}} = item,
                                                 {rendered, y_off} ->
-        {UIServer.items_to_list([item], ui_state, origin_x + x, y_off + y, rendered),
+        {UIServer.render_widgets([item], ui_state, origin_x + x, y_off + y, rendered),
          y_off + wy + wh + spacing}
       end)
 
@@ -409,16 +409,16 @@ defmodule PhotonUI.UIServer do
     make_initial_state(t, acc)
   end
 
-  def items_to_list([], _state, _origin_x, _origin_y, acc) do
+  def render_widgets([], _state, _origin_x, _origin_y, acc) do
     acc
   end
 
-  def items_to_list([{name, %Button{} = item} | t], state, origin_x, origin_y, acc) do
+  def render_widgets([{name, %Button{} = item} | t], state, origin_x, origin_y, acc) do
     list = Button.render(item, name, state, origin_x, origin_y, acc)
-    items_to_list(t, state, origin_x, origin_y, list)
+    render_widgets(t, state, origin_x, origin_y, list)
   end
 
-  def items_to_list(
+  def render_widgets(
         [{_name, %Text{text: text, x: x, y: y}} | t],
         state,
         origin_x,
@@ -427,10 +427,10 @@ defmodule PhotonUI.UIServer do
       ) do
     display_item = {:text, origin_x + x, origin_y + y, :default16px, 0x000000, @bg_color, text}
     list = [display_item | acc]
-    items_to_list(t, state, origin_x, origin_y, list)
+    render_widgets(t, state, origin_x, origin_y, list)
   end
 
-  def items_to_list(
+  def render_widgets(
         [{name, %TextInput{} = item} | t],
         state,
         origin_x,
@@ -438,10 +438,10 @@ defmodule PhotonUI.UIServer do
         acc
       ) do
     maybe_focused_list = TextInput.render(item, name, state, origin_x, origin_y, acc)
-    items_to_list(t, state, origin_x, origin_y, maybe_focused_list)
+    render_widgets(t, state, origin_x, origin_y, maybe_focused_list)
   end
 
-  def items_to_list(
+  def render_widgets(
         [{name, %Container{} = container} | t],
         state,
         origin_x,
@@ -449,10 +449,10 @@ defmodule PhotonUI.UIServer do
         acc
       ) do
     children_list = Container.render(container, name, state, origin_x, origin_y, [])
-    items_to_list(t, state, origin_x, origin_y, children_list ++ acc)
+    render_widgets(t, state, origin_x, origin_y, children_list ++ acc)
   end
 
-  def items_to_list(
+  def render_widgets(
         [{name, %HorizontalLayout{} = horizontal_layout} | t],
         state,
         origin_x,
@@ -462,10 +462,10 @@ defmodule PhotonUI.UIServer do
     acc_with_children =
       HorizontalLayout.render(horizontal_layout, name, state, origin_x, origin_y, acc)
 
-    items_to_list(t, state, origin_x, origin_y, acc_with_children)
+    render_widgets(t, state, origin_x, origin_y, acc_with_children)
   end
 
-  def items_to_list(
+  def render_widgets(
         [{name, %VerticalLayout{} = item} | t],
         state,
         origin_x,
@@ -473,7 +473,7 @@ defmodule PhotonUI.UIServer do
         acc
       ) do
     acc_with_children = VerticalLayout.render(item, name, state, origin_x, origin_y, acc)
-    items_to_list(t, state, origin_x, origin_y, acc_with_children)
+    render_widgets(t, state, origin_x, origin_y, acc_with_children)
   end
 
   def build_mouse_area_list(widgets) do
@@ -663,7 +663,7 @@ defmodule PhotonUI.UIServer do
 
   def render(widgets, widget_state) do
     if widget_state[:visible] do
-      items_to_list(widgets, widget_state, 0, 0, [
+      render_widgets(widgets, widget_state, 0, 0, [
         {:rect, 0, 0, widget_state[:width], widget_state[:height], @bg_color}
       ])
     else
