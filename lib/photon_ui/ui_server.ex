@@ -11,8 +11,8 @@ alias PhotonUI.Widgets.VerticalLayout
 defmodule PhotonUI.Widgets.Button do
   defstruct [:text, :x, :y, :width, :height]
 
-  def accepts_mouse_events(_widget), do: true
-  def can_be_focused?(_widget), do: true
+  def accepts_mouse_events(_name, _widget, _ui_state), do: true
+  def can_be_focused?(_name, _widget, _ui_state), do: true
   def state_struct_module(), do: ButtonState
 
   def render(button, name, ui_state, origin_x, origin_y, acc) do
@@ -98,14 +98,19 @@ defmodule PhotonUI.Widgets.HorizontalLayout do
     acc_with_children
   end
 
-  def prepend_mouse_area(widget, origin_x, origin_y, acc) do
+  def prepend_mouse_area(_name, widget, ui_state, origin_x, origin_y, acc) do
     %HorizontalLayout{children: children, x: x, y: y, spacing: spacing} = widget
 
     {acc_with_children, _final_off} =
       Enum.reduce(children, {acc, origin_x}, fn {_wn, %{x: wx, width: ww}} = item,
                                                 {mouse_area_acc, x_off} ->
-        {UIServer.build_mouse_area_list([item], x_off + x, origin_y + y, mouse_area_acc),
-         x_off + wx + ww + spacing}
+        {UIServer.build_mouse_area_list(
+           [item],
+           ui_state,
+           x_off + x,
+           origin_y + y,
+           mouse_area_acc
+         ), x_off + wx + ww + spacing}
       end)
 
     acc_with_children
@@ -128,7 +133,7 @@ defmodule PhotonUI.Widgets.TextInput do
 
   @bg_color 0xFFFFFF
 
-  def can_be_focused?(_widget), do: true
+  def can_be_focused?(_name, _widget, _state), do: true
   def state_struct_module(), do: TextInputState
 
   def render(text_input, name, ui_state, origin_x, origin_y, acc) do
@@ -219,14 +224,19 @@ defmodule PhotonUI.Widgets.VerticalLayout do
     acc_with_children
   end
 
-  def prepend_mouse_area(widget, origin_x, origin_y, acc) do
+  def prepend_mouse_area(_name, widget, ui_state, origin_x, origin_y, acc) do
     %VerticalLayout{children: children, x: x, y: y, spacing: spacing} = widget
 
     {acc_with_children, _final_off} =
       Enum.reduce(children, {acc, origin_y}, fn {_wn, %{y: wy, height: wh}} = item,
                                                 {mouse_area_acc, y_off} ->
-        {UIServer.build_mouse_area_list([item], origin_x + x, y_off + y, mouse_area_acc),
-         y_off + wy + wh + spacing}
+        {UIServer.build_mouse_area_list(
+           [item],
+           ui_state,
+           origin_x + x,
+           y_off + y,
+           mouse_area_acc
+         ), y_off + wy + wh + spacing}
       end)
 
     acc_with_children
@@ -260,26 +270,28 @@ defmodule PhotonUI.UIServer do
 
     {:ok, {widgets, _initial_widget_state}, custom_state} = module.init(args)
 
-    focus_list = build_focus_list(widgets)
-    focused_item = Enum.at(focus_list, 0)
-
-    mouse_area_list = build_mouse_area_list(widgets)
-
     # TODO: merge with provided widget initial state
-    initial_state =
+    built_initial_state =
       make_initial_state(widgets, %{
         width: opts[:width],
         height: opts[:height],
-        visible: false,
-        "$focused_item": focused_item,
-        "$focus_list": focus_list,
-        "$mouse_area_list": mouse_area_list
+        visible: false
       })
+
+    focus_list = build_focus_list(widgets, built_initial_state)
+    focused_item = Enum.at(focus_list, 0)
+    mouse_area_list = build_mouse_area_list(widgets, built_initial_state)
+
+    ui_state =
+      built_initial_state
+      |> Map.put(:"$focused_item", focused_item)
+      |> Map.put(:"$focus_list", focus_list)
+      |> Map.put(:"$mouse_area_list", mouse_area_list)
 
     s =
       ui_server_state(
         module: module,
-        ui: {widgets, initial_state},
+        ui: {widgets, ui_state},
         custom_state: custom_state
       )
 
@@ -452,38 +464,49 @@ defmodule PhotonUI.UIServer do
     render_widgets(t, state, origin_x, origin_y, new_rendered_acc)
   end
 
-  def build_mouse_area_list(widgets) do
-    build_mouse_area_list(widgets, 0, 0, [])
+  def build_mouse_area_list(widgets, ui_state) do
+    build_mouse_area_list(widgets, ui_state, 0, 0, [])
   end
 
-  def build_mouse_area_list([], _origin_x, _origin_y, acc) do
+  def build_mouse_area_list([], _ui_state, _origin_x, _origin_y, acc) do
     Enum.reverse(acc)
   end
 
-  def build_mouse_area_list([{name, %widget_type{} = widget} | t], origin_x, origin_y, acc) do
+  def build_mouse_area_list(
+        [{name, %widget_type{} = widget} | t],
+        ui_state,
+        origin_x,
+        origin_y,
+        acc
+      ) do
     cond do
-      function_exported?(widget_type, :accepts_mouse_events, 1) ->
-        if widget_type.accepts_mouse_events(widget) do
+      function_exported?(widget_type, :accepts_mouse_events, 3) ->
+        if widget_type.accepts_mouse_events(name, widget, ui_state) do
           %{x: x, y: y, width: width, height: height} = widget
 
-          build_mouse_area_list(t, origin_x, origin_y, [
+          build_mouse_area_list(t, ui_state, origin_x, origin_y, [
             {name, origin_x + x, origin_y + y, width, height} | acc
           ])
         else
-          build_mouse_area_list(t, origin_x, origin_y, acc)
+          build_mouse_area_list(t, ui_state, origin_x, origin_y, acc)
         end
 
-      function_exported?(widget_type, :prepend_mouse_area, 4) ->
-        acc_with_children = widget_type.prepend_mouse_area(widget, origin_x, origin_y, acc)
-        build_mouse_area_list(t, origin_x, origin_y, acc_with_children)
+      function_exported?(widget_type, :prepend_mouse_area, 6) ->
+        acc_with_children =
+          widget_type.prepend_mouse_area(name, widget, ui_state, origin_x, origin_y, acc)
+
+        build_mouse_area_list(t, ui_state, origin_x, origin_y, acc_with_children)
 
       match?(%{children: _children, x: _x, y: _y}, widget) ->
         %{children: children, x: x, y: y} = widget
-        children_focus_list = build_mouse_area_list(children, origin_x + x, origin_y + y, acc)
-        build_mouse_area_list(t, origin_x, origin_y, children_focus_list)
+
+        children_focus_list =
+          build_mouse_area_list(children, ui_state, origin_x + x, origin_y + y, acc)
+
+        build_mouse_area_list(t, ui_state, origin_x, origin_y, children_focus_list)
 
       true ->
-        build_mouse_area_list(t, origin_x, origin_y, acc)
+        build_mouse_area_list(t, ui_state, origin_x, origin_y, acc)
     end
   end
 
@@ -497,31 +520,32 @@ defmodule PhotonUI.UIServer do
     widget_name
   end
 
-  def build_focus_list(widgets) do
-    build_focus_list(widgets, [])
+  def build_focus_list(widgets, ui_state) do
+    build_focus_list(widgets, ui_state, [])
   end
 
-  def build_focus_list([], acc) do
+  def build_focus_list([], _ui_state, acc) do
     Enum.reverse(acc)
   end
 
-  def build_focus_list([{name, widget} | t], acc) do
+  def build_focus_list([{name, widget} | t], ui_state, acc) do
     %widget_type{} = widget
 
     cond do
-      function_exported?(widget_type, :can_be_focused?, 1) and widget_type.can_be_focused?(widget) ->
-        build_focus_list(t, [name | acc])
+      function_exported?(widget_type, :can_be_focused?, 3) and
+          widget_type.can_be_focused?(name, widget, ui_state) ->
+        build_focus_list(t, ui_state, [name | acc])
 
       match?(%{children: _children}, widget) ->
         children_focus_list =
           widget.children
-          |> build_focus_list([])
+          |> build_focus_list(ui_state, [])
           |> Enum.reverse()
 
-        build_focus_list(t, children_focus_list ++ acc)
+        build_focus_list(t, ui_state, children_focus_list ++ acc)
 
       true ->
-        build_focus_list(t, acc)
+        build_focus_list(t, ui_state, acc)
     end
   end
 
