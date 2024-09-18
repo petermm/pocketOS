@@ -12,6 +12,7 @@ defmodule PhotonUI.Widgets.Button do
   defstruct [:text, :x, :y, :width, :height]
 
   def accepts_mouse_events(_widget), do: true
+  def can_be_focused?(_widget), do: true
 
   def render(button, name, ui_state, origin_x, origin_y, acc) do
     %Button{text: text, x: x, y: y, width: width, height: height} = button
@@ -125,6 +126,8 @@ defmodule PhotonUI.Widgets.TextInput do
   defstruct [:x, :y, :width, :height]
 
   @bg_color 0xFFFFFF
+
+  def can_be_focused?(_widget), do: true
 
   def render(text_input, name, ui_state, origin_x, origin_y, acc) do
     %{x: x, y: y} = text_input
@@ -499,16 +502,22 @@ defmodule PhotonUI.UIServer do
     Enum.reverse(acc)
   end
 
-  def build_focus_list([{item_name, item} | t], acc) do
-    case item do
-      %{children: children} ->
-        children_focus_list = Enum.reverse(build_focus_list(children, []))
+  def build_focus_list([{name, widget} | t], acc) do
+    %widget_type{} = widget
+
+    cond do
+      function_exported?(widget_type, :can_be_focused?, 1) and widget_type.can_be_focused?(widget) ->
+        build_focus_list(t, [name | acc])
+
+      match?(%{children: _children}, widget) ->
+        children_focus_list =
+          widget.children
+          |> build_focus_list([])
+          |> Enum.reverse()
+
         build_focus_list(t, children_focus_list ++ acc)
 
-      %focusable_type{} when focusable_type in [Button, TextInput] ->
-        build_focus_list(t, [item_name | acc])
-
-      _ ->
+      true ->
         build_focus_list(t, acc)
     end
   end
