@@ -13,6 +13,7 @@ defmodule PhotonUI.Widgets.Button do
 
   def accepts_mouse_events(_widget), do: true
   def can_be_focused?(_widget), do: true
+  def state_struct_module(), do: ButtonState
 
   def render(button, name, ui_state, origin_x, origin_y, acc) do
     %Button{text: text, x: x, y: y, width: width, height: height} = button
@@ -128,9 +129,10 @@ defmodule PhotonUI.Widgets.TextInput do
   @bg_color 0xFFFFFF
 
   def can_be_focused?(_widget), do: true
+  def state_struct_module(), do: TextInputState
 
   def render(text_input, name, ui_state, origin_x, origin_y, acc) do
-    %{x: x, y: y} = text_input
+    %TextInput{x: x, y: y} = text_input
     %{cursor_pos: cursor_pos, text: text} = ui_state[name]
 
     x_pos = origin_x + x
@@ -423,21 +425,22 @@ defmodule PhotonUI.UIServer do
     acc
   end
 
-  defp make_initial_state([{name, %Button{}} | t], acc) do
-    make_initial_state(t, Map.put(acc, name, %ButtonState{}))
-  end
+  defp make_initial_state([{name, %widget_type{} = widget} | t], acc) do
+    acc_with_children =
+      case widget do
+        %{children: children} -> make_initial_state(children, acc)
+        _ -> acc
+      end
 
-  defp make_initial_state([{name, %TextInput{}} | t], acc) do
-    make_initial_state(t, Map.put(acc, name, %TextInputState{}))
-  end
+    acc_with_widget_state =
+      if function_exported?(widget_type, :state_struct_module, 0) do
+        struct_name = widget_type.state_struct_module()
+        Map.put(acc_with_children, name, struct(struct_name))
+      else
+        acc_with_children
+      end
 
-  defp make_initial_state([{_name, %{children: _children} = container} | t], acc) do
-    children_acc = make_initial_state(container.children, acc)
-    make_initial_state(t, children_acc)
-  end
-
-  defp make_initial_state([{_name, _item} | t], acc) do
-    make_initial_state(t, acc)
+    make_initial_state(t, acc_with_widget_state)
   end
 
   def render_widgets([], _state, _origin_x, _origin_y, acc) do
