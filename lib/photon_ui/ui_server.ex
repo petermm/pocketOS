@@ -9,10 +9,11 @@ alias PhotonUI.Widgets.TextInputState
 alias PhotonUI.Widgets.VerticalLayout
 
 defmodule PhotonUI.Widgets.Button do
-  defstruct [:text, :x, :y, :width, :height]
+  @enforce_keys [:name]
+  defstruct [:name, :text, :x, :y, :width, :height]
 
-  def accepts_mouse_events(_name, _widget, _ui_state), do: true
-  def can_be_focused?(_name, _widget, _ui_state), do: true
+  def accepts_mouse_events(_widget, _ui_state), do: true
+  def can_be_focused?(_widget, _ui_state), do: true
   def state_struct_module(), do: ButtonState
 
   def render(button, name, ui_state, origin_x, origin_y, acc) do
@@ -74,7 +75,8 @@ defmodule PhotonUI.Widgets.ButtonState do
 end
 
 defmodule PhotonUI.Widgets.Container do
-  defstruct [:x, :y, :width, :height, :children]
+  @enforce_keys [:name]
+  defstruct [:name, :x, :y, :width, :height, :children]
 
   def render(container, _name, ui_state, origin_x, origin_y, acc) do
     %Container{children: children, x: x, y: y} = container
@@ -83,14 +85,14 @@ defmodule PhotonUI.Widgets.Container do
 end
 
 defmodule PhotonUI.Widgets.HorizontalLayout do
-  defstruct [:x, :y, :width, :height, :children, spacing: 0]
+  @enforce_keys [:name]
+  defstruct [:name, :x, :y, :width, :height, :children, spacing: 0]
 
   def render(h_layout, _name, ui_state, origin_x, origin_y, acc) do
     %HorizontalLayout{children: children, x: x, y: y, spacing: spacing} = h_layout
 
     {acc_with_children, _final_off} =
-      Enum.reduce(children, {acc, origin_x}, fn {_wn, %{x: wx, width: ww}} = item,
-                                                {rendered, x_off} ->
+      Enum.reduce(children, {acc, origin_x}, fn %{x: wx, width: ww} = item, {rendered, x_off} ->
         {UIServer.render_widgets([item], ui_state, x_off + x, origin_y + y, rendered),
          x_off + wx + ww + spacing}
       end)
@@ -98,11 +100,11 @@ defmodule PhotonUI.Widgets.HorizontalLayout do
     acc_with_children
   end
 
-  def prepend_mouse_area(_name, widget, ui_state, origin_x, origin_y, acc) do
+  def prepend_mouse_area(widget, ui_state, origin_x, origin_y, acc) do
     %HorizontalLayout{children: children, x: x, y: y, spacing: spacing} = widget
 
     {acc_with_children, _final_off} =
-      Enum.reduce(children, {acc, origin_x}, fn {_wn, %{x: wx, width: ww}} = item,
+      Enum.reduce(children, {acc, origin_x}, fn %{x: wx, width: ww} = item,
                                                 {mouse_area_acc, x_off} ->
         {UIServer.build_mouse_area_list(
            [item],
@@ -118,7 +120,8 @@ defmodule PhotonUI.Widgets.HorizontalLayout do
 end
 
 defmodule PhotonUI.Widgets.Text do
-  defstruct [:x, :y, :width, :height, :text]
+  @enforce_keys [:name]
+  defstruct [:name, :x, :y, :width, :height, :text]
 
   @bg_color 0xFFFFFF
 
@@ -129,11 +132,12 @@ defmodule PhotonUI.Widgets.Text do
 end
 
 defmodule PhotonUI.Widgets.TextInput do
-  defstruct [:x, :y, :width, :height]
+  @enforce_keys [:name]
+  defstruct [:name, :x, :y, :width, :height]
 
   @bg_color 0xFFFFFF
 
-  def can_be_focused?(_name, _widget, _state), do: true
+  def can_be_focused?(_widget, _state), do: true
   def state_struct_module(), do: TextInputState
 
   def render(text_input, name, ui_state, origin_x, origin_y, acc) do
@@ -209,14 +213,14 @@ defmodule PhotonUI.Widgets.TextInputState do
 end
 
 defmodule PhotonUI.Widgets.VerticalLayout do
-  defstruct [:x, :y, :width, :height, :children, spacing: 0]
+  @enforce_keys [:name]
+  defstruct [:name, :x, :y, :width, :height, :children, spacing: 0]
 
   def render(vertical_layout, _name, ui_state, origin_x, origin_y, acc) do
     %VerticalLayout{children: children, x: x, y: y, spacing: spacing} = vertical_layout
 
     {acc_with_children, _final_off} =
-      Enum.reduce(children, {acc, origin_y}, fn {_wn, %{y: wy, height: wh}} = item,
-                                                {rendered, y_off} ->
+      Enum.reduce(children, {acc, origin_y}, fn %{y: wy, height: wh} = item, {rendered, y_off} ->
         {UIServer.render_widgets([item], ui_state, origin_x + x, y_off + y, rendered),
          y_off + wy + wh + spacing}
       end)
@@ -224,11 +228,11 @@ defmodule PhotonUI.Widgets.VerticalLayout do
     acc_with_children
   end
 
-  def prepend_mouse_area(_name, widget, ui_state, origin_x, origin_y, acc) do
+  def prepend_mouse_area(widget, ui_state, origin_x, origin_y, acc) do
     %VerticalLayout{children: children, x: x, y: y, spacing: spacing} = widget
 
     {acc_with_children, _final_off} =
-      Enum.reduce(children, {acc, origin_y}, fn {_wn, %{y: wy, height: wh}} = item,
+      Enum.reduce(children, {acc, origin_y}, fn %{y: wy, height: wh} = item,
                                                 {mouse_area_acc, y_off} ->
         {UIServer.build_mouse_area_list(
            [item],
@@ -437,7 +441,7 @@ defmodule PhotonUI.UIServer do
     acc
   end
 
-  defp make_initial_state([{name, %widget_type{} = widget} | t], acc) do
+  defp make_initial_state([%widget_type{name: name} = widget | t], acc) do
     acc_with_children =
       case widget do
         %{children: children} -> make_initial_state(children, acc)
@@ -459,7 +463,7 @@ defmodule PhotonUI.UIServer do
     acc
   end
 
-  def render_widgets([{name, %widget_type{} = widget} | t], state, origin_x, origin_y, acc) do
+  def render_widgets([%widget_type{name: name} = widget | t], state, origin_x, origin_y, acc) do
     new_rendered_acc = widget_type.render(widget, name, state, origin_x, origin_y, acc)
     render_widgets(t, state, origin_x, origin_y, new_rendered_acc)
   end
@@ -473,15 +477,15 @@ defmodule PhotonUI.UIServer do
   end
 
   def build_mouse_area_list(
-        [{name, %widget_type{} = widget} | t],
+        [%widget_type{name: name} = widget | t],
         ui_state,
         origin_x,
         origin_y,
         acc
       ) do
     cond do
-      function_exported?(widget_type, :accepts_mouse_events, 3) ->
-        if widget_type.accepts_mouse_events(name, widget, ui_state) do
+      function_exported?(widget_type, :accepts_mouse_events, 2) ->
+        if widget_type.accepts_mouse_events(widget, ui_state) do
           %{x: x, y: y, width: width, height: height} = widget
 
           build_mouse_area_list(t, ui_state, origin_x, origin_y, [
@@ -491,9 +495,9 @@ defmodule PhotonUI.UIServer do
           build_mouse_area_list(t, ui_state, origin_x, origin_y, acc)
         end
 
-      function_exported?(widget_type, :prepend_mouse_area, 6) ->
+      function_exported?(widget_type, :prepend_mouse_area, 5) ->
         acc_with_children =
-          widget_type.prepend_mouse_area(name, widget, ui_state, origin_x, origin_y, acc)
+          widget_type.prepend_mouse_area(widget, ui_state, origin_x, origin_y, acc)
 
         build_mouse_area_list(t, ui_state, origin_x, origin_y, acc_with_children)
 
@@ -528,12 +532,12 @@ defmodule PhotonUI.UIServer do
     Enum.reverse(acc)
   end
 
-  def build_focus_list([{name, widget} | t], ui_state, acc) do
-    %widget_type{} = widget
+  def build_focus_list([widget | t], ui_state, acc) do
+    %widget_type{name: name} = widget
 
     cond do
-      function_exported?(widget_type, :can_be_focused?, 3) and
-          widget_type.can_be_focused?(name, widget, ui_state) ->
+      function_exported?(widget_type, :can_be_focused?, 2) and
+          widget_type.can_be_focused?(widget, ui_state) ->
         build_focus_list(t, ui_state, [name | acc])
 
       match?(%{children: _children}, widget) ->
@@ -642,7 +646,7 @@ defmodule PhotonUI.UIServer do
     nil
   end
 
-  def find_widget([{name, widget} | _t], name) do
+  def find_widget([%{name: name} = widget | _t], name) do
     widget
   end
 

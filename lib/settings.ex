@@ -7,27 +7,31 @@ alias PhotonUI.UIServer
 
 defmodule UI.Settings do
   @ui [
-    vl: %VerticalLayout{
+    %VerticalLayout{
+      name: :vl,
       x: 5,
       y: 5,
       width: 315,
       height: 235,
       spacing: 8,
       children: [
-        essid_layout: %HorizontalLayout{
+        %HorizontalLayout{
+          name: :essid_layout,
           x: 0,
           y: 0,
           width: 315,
           height: 16,
           children: [
-            essid_label: %Text{
+            %Text{
+              name: :essid_label,
               text: "ESSID: ",
               x: 0,
               y: 0,
               width: byte_size("ESSID: ") * 8,
               height: 16
             },
-            essid_input: %TextInput{
+            %TextInput{
+              name: :essid_input,
               x: 0,
               y: 0,
               width: 60,
@@ -35,20 +39,23 @@ defmodule UI.Settings do
             }
           ]
         },
-        password: %HorizontalLayout{
+        %HorizontalLayout{
+          name: :password,
           x: 0,
           y: 0,
           height: 16,
           width: 315,
           children: [
-            password_label: %Text{
+            %Text{
+              name: :password_label,
               text: "Password:",
               x: 0,
               y: 0,
               width: byte_size("Password: ") * 8,
               height: 16
             },
-            password_input: %TextInput{
+            %TextInput{
+              name: :password_input,
               x: 0,
               y: 0,
               width: 60,
@@ -56,7 +63,8 @@ defmodule UI.Settings do
             }
           ]
         },
-        ok_button: %Button{
+        %Button{
+          name: :ok_button,
           text: "Ok",
           x: 0,
           y: 0,
@@ -65,7 +73,8 @@ defmodule UI.Settings do
         }
       ]
     },
-    counter_input: %TextInput{
+    %TextInput{
+      name: :counter_input,
       x: 156,
       y: 112,
       width: 100,
