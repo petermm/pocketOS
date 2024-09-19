@@ -1,5 +1,6 @@
 alias PhotonUI.Widgets.Button
 alias PhotonUI.Widgets.HorizontalLayout
+alias PhotonUI.Widgets.Image
 alias PhotonUI.Widgets.Text
 alias PhotonUI.Widgets.TextInput
 alias PhotonUI.Widgets.VerticalLayout
@@ -15,6 +16,14 @@ defmodule UI.Settings do
       height: 235,
       spacing: 8,
       children: [
+        %Image{
+          name: :info_icon,
+          x: 0,
+          y: 0,
+          width: 64,
+          height: 64,
+          source: {:pocket_os, "icons/status/info.rgba"}
+        },
         %HorizontalLayout{
           name: :essid_layout,
           x: 0,
