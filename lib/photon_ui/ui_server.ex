@@ -3,6 +3,8 @@ alias PhotonUI.Widgets.Button
 alias PhotonUI.Widgets.ButtonState
 alias PhotonUI.Widgets.Container
 alias PhotonUI.Widgets.HorizontalLayout
+alias PhotonUI.Widgets.Image
+alias PhotonUI.Widgets.ImageState
 alias PhotonUI.Widgets.Text
 alias PhotonUI.Widgets.TextInput
 alias PhotonUI.Widgets.TextInputState
@@ -116,6 +118,43 @@ defmodule PhotonUI.Widgets.HorizontalLayout do
       end)
 
     acc_with_children
+  end
+end
+
+defmodule PhotonUI.Widgets.Image do
+  @enforce_keys [:name]
+  defstruct [:name, :x, :y, :width, :height, :source]
+
+  @bg_color 0xFFFFFF
+
+  def state_struct_module(), do: ImageState
+  def has_init_function(), do: true
+
+  def render(icon_widget, name, ui_state, origin_x, origin_y, acc) do
+    %Image{x: x, y: y} = icon_widget
+    %{image: image} = ui_state[name]
+
+    [{:image, origin_x + x, origin_y + y, @bg_color, image} | acc]
+  end
+end
+
+defmodule PhotonUI.Widgets.ImageState do
+  defstruct [:image]
+
+  @compile {:no_warn_undefined, :atomvm}
+
+  def init(%Image{source: source}) do
+    %ImageState{
+      image: load_image(source)
+    }
+  end
+
+  defp load_image({app, icon_name}) do
+    <<"rgba8888", width::little-unsigned-size(16), height::little-unsigned-size(16),
+      _tile_width::little-unsigned-size(16), _tile_height::little-unsigned-size(16),
+      data::binary>> = :atomvm.read_priv(app, icon_name)
+
+    {:rgba8888, width, height, data}
   end
 end
 
@@ -449,11 +488,18 @@ defmodule PhotonUI.UIServer do
       end
 
     acc_with_widget_state =
-      if function_exported?(widget_type, :state_struct_module, 0) do
-        struct_name = widget_type.state_struct_module()
-        Map.put(acc_with_children, name, struct(struct_name))
-      else
-        acc_with_children
+      cond do
+        function_exported?(widget_type, :has_init_function, 0) ->
+          struct_name = widget_type.state_struct_module()
+          initialized = struct_name.init(widget)
+          Map.put(acc_with_children, name, initialized)
+
+        function_exported?(widget_type, :state_struct_module, 0) ->
+          struct_name = widget_type.state_struct_module()
+          Map.put(acc_with_children, name, struct(struct_name))
+
+        true ->
+          acc_with_children
       end
 
     make_initial_state(t, acc_with_widget_state)
