@@ -223,7 +223,7 @@ defmodule PhotonUI.Widgets.TextInputState do
   def handle_input(text_input_state, {:keyboard, :down, code}, _ts) do
     %TextInputState{text: old_text, cursor_pos: old_cursor_pos} = text_input_state
 
-    {updated_cursor_pos, updated_text} = update_text(old_text, code, old_cursor_pos)
+    {updated_text, updated_cursor_pos} = update_text(old_text, code, old_cursor_pos)
 
     {%TextInputState{text_input_state | text: updated_text, cursor_pos: updated_cursor_pos},
      [event: {:text_input, updated_text}]}
@@ -233,20 +233,24 @@ defmodule PhotonUI.Widgets.TextInputState do
     PhotonUI.UIServer.default_input_handler(text_input_state, event, ts)
   end
 
-  defp update_text(text, char, cursor_pos) do
+  def update_text(text, ?\b, 0) do
+    {text, 0}
+  end
+
+  def update_text(text, char, cursor_pos) do
     case char do
       8 ->
         case text do
           <<pre::binary-size(cursor_pos - 1), _remove::size(8), rest::binary>> ->
-            {cursor_pos - 1, <<pre::binary, rest::binary>>}
+            {<<pre::binary, rest::binary>>, cursor_pos - 1}
 
           <<>> ->
-            {0, <<>>}
+            {<<>>, 0}
         end
 
       _ ->
         <<pre::binary-size(cursor_pos), rest::binary>> = text
-        {cursor_pos + 1, <<pre::binary, char::size(8), rest::binary>>}
+        {<<pre::binary, char::size(8), rest::binary>>, cursor_pos + 1}
     end
   end
 end
