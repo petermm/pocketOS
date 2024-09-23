@@ -161,8 +161,8 @@ defmodule PhotonUI.Widgets.IconGridView do
     {_, icons} =
       model
       |> Enum.slice(page * icons_per_page, icons_per_page)
-      |> Enum.reduce({0, acc}, fn {k, v}, {index, grid_acc} ->
-        img = images[k]
+      |> Enum.reduce({0, acc}, fn v, {index, grid_acc} ->
+        img = images[index]
         txt = v[:text]
         x_pos = origin_x + x + cell_width * rem(index, cols)
         y_pos = origin_y + y + cell_height * div(index, cols)
@@ -222,7 +222,10 @@ defmodule PhotonUI.Widgets.IconGridViewState do
 
   defp load_images(model) do
     model
-    |> Enum.map(fn {k, v} -> {k, ImageState.load_image(v[:source])} end)
+    |> Enum.reduce({0, []}, fn item, {index, acc} ->
+      {index + 1, [{index, ImageState.load_image(item[:source])} | acc]}
+    end)
+    |> elem(1)
     |> Enum.into(%{})
   end
 
@@ -251,9 +254,9 @@ defmodule PhotonUI.Widgets.IconGridViewState do
       when enter in [{:keyboard, :up, 10}, {:keyboard, :up, 13}] do
     %__MODULE__{selected_index: selected_index, model: model} = grid_state
 
-    {item_name, _} = Enum.at(model, selected_index)
+    item = Enum.at(model, selected_index)
 
-    {%__MODULE__{grid_state | state: :released}, [event: {:clicked, selected_index, item_name}]}
+    {%__MODULE__{grid_state | state: :released}, [event: {:clicked, selected_index, item}]}
   end
 
   def handle_input(button, event, ts) do
