@@ -660,7 +660,7 @@ defmodule PhotonUI.UIServer do
     %{^name => %widget_type{} = individual_widget_state} = widget_state
 
     updated_individual_widget_state =
-      widget_type.update_property(individual_widget_state, :text, value)
+      widget_type.update_property(individual_widget_state, property, value)
 
     %{widget_state | name => updated_individual_widget_state}
   end
