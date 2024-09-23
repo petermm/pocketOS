@@ -1,4 +1,5 @@
-SUBDIRS = status
+SUBDIRS = status \
+          apps
 
 .PHONY: subdirs $(SUBDIRS)
 
