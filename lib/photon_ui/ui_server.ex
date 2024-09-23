@@ -3,6 +3,8 @@ alias PhotonUI.Widgets.Button
 alias PhotonUI.Widgets.ButtonState
 alias PhotonUI.Widgets.Container
 alias PhotonUI.Widgets.HorizontalLayout
+alias PhotonUI.Widgets.IconGridView
+alias PhotonUI.Widgets.IconGridViewState
 alias PhotonUI.Widgets.Image
 alias PhotonUI.Widgets.ImageState
 alias PhotonUI.Widgets.Text
@@ -121,6 +123,144 @@ defmodule PhotonUI.Widgets.HorizontalLayout do
   end
 end
 
+defmodule PhotonUI.Widgets.IconGridView do
+  @enforce_keys [:name]
+  defstruct [:name, :x, :y, :width, :height, :icon_size, :cell_width, :cell_height]
+
+  def can_be_focused?(_widget, _ui_state), do: true
+  def accepts_mouse_events(_widget, _ui_state), do: true
+  def state_struct_module(), do: IconGridViewState
+  def has_init_function(), do: true
+
+  def render(icon_widget, name, ui_state, origin_x, origin_y, acc) do
+    %IconGridView{
+      x: x,
+      y: y,
+      width: width,
+      height: height,
+      icon_size: icon_size,
+      cell_width: cell_width,
+      cell_height: cell_height
+    } = icon_widget
+
+    %{
+      count: count,
+      images: images,
+      model: model,
+      selected_index: selected_index,
+      state: state
+    } = ui_state[name]
+
+    cols = div(width, cell_width)
+    rows = div(height, cell_height)
+
+    icons_per_page = cols * rows
+    page = div(selected_index, icons_per_page)
+
+    # TODO: maybe Enum.reduce_while
+    {_, icons} =
+      model
+      |> Enum.slice(page * icons_per_page, icons_per_page)
+      |> Enum.reduce({0, acc}, fn {k, v}, {index, grid_acc} ->
+        img = images[k]
+        txt = v[:text]
+        x_pos = origin_x + x + cell_width * rem(index, cols)
+        y_pos = origin_y + y + cell_height * div(index, cols)
+        icon_xpos = x_pos + div(cell_width - icon_size, 2)
+        icon_ypos = y_pos + 8
+        text_xpos = x_pos + div(cell_width - byte_size(txt) * 8, 2)
+        text_ypos = y_pos + 16 + icon_size
+
+        {text_color, bg_color, with_background} =
+          if index + page * icons_per_page == selected_index do
+            color =
+              if state == :released do
+                0x0000FF
+              else
+                0x000080
+              end
+
+            {0xFFFFFF, color, [{:rect, x_pos, y_pos, cell_width, cell_height, color} | grid_acc]}
+          else
+            {0x000000, 0xFFFFFF, grid_acc}
+          end
+
+        {index + 1,
+         [
+           {:text, text_xpos, text_ypos, :default16px, text_color, bg_color, v[:text]},
+           {:image, icon_xpos, icon_ypos, bg_color, img}
+           | with_background
+         ]}
+      end)
+
+    pages = div(count, icons_per_page) + 1
+
+    if pages > 1 do
+      scroll_height = div(height - 2, pages)
+      scroll_yoff = scroll_height * page
+      [{:rect, width - 6, origin_y + y + scroll_yoff, 2, scroll_height, 0x000000} | icons]
+    else
+      icons
+    end
+  end
+end
+
+defmodule PhotonUI.Widgets.IconGridViewState do
+  defstruct [:images, :model, :count, :selected_index, :state]
+
+  @compile {:no_warn_undefined, :atomvm}
+
+  def init(_widget) do
+    %__MODULE__{
+      state: :released,
+      selected_index: 0,
+      images: %{},
+      model: [],
+      count: 0
+    }
+  end
+
+  defp load_images(model) do
+    model
+    |> Enum.map(fn {k, v} -> {k, ImageState.load_image(v[:source])} end)
+    |> Enum.into(%{})
+  end
+
+  def update_property(%__MODULE__{} = s, property, value) do
+    case property do
+      :model ->
+        %__MODULE__{s | model: value, count: Enum.count(value), images: load_images(value)}
+    end
+  end
+
+  def handle_input(grid_state, {:keyboard, :up, 274}, _ts) do
+    %{selected_index: selected_index, count: count} = grid_state
+
+    next_index = rem(selected_index + 1, count)
+
+    {%__MODULE__{grid_state | selected_index: next_index},
+     [event: {:selected_item_changed, next_index}]}
+  end
+
+  def handle_input(grid_state, enter, _ts)
+      when enter in [{:keyboard, :down, 10}, {:keyboard, :down, 13}] do
+    %__MODULE__{grid_state | state: :pressed}
+  end
+
+  def handle_input(grid_state, enter, _ts)
+      when enter in [{:keyboard, :up, 10}, {:keyboard, :up, 13}] do
+    %__MODULE__{selected_index: selected_index, model: model} = grid_state
+
+    {item_name, _} = Enum.at(model, selected_index)
+
+    {%__MODULE__{grid_state | state: :released}, [event: {:clicked, selected_index, item_name}]}
+  end
+
+  def handle_input(button, event, ts) do
+    PhotonUI.UIServer.default_input_handler(button, event, ts)
+  end
+end
+
 defmodule PhotonUI.Widgets.Image do
   @enforce_keys [:name]
   defstruct [:name, :x, :y, :width, :height, :source]
@@ -149,7 +289,7 @@ defmodule PhotonUI.Widgets.ImageState do
     }
   end
 
-  defp load_image({app, icon_name}) do
+  def load_image({app, icon_name}) do
     <<"rgba8888", width::little-unsigned-size(16), height::little-unsigned-size(16),
       _tile_width::little-unsigned-size(16), _tile_height::little-unsigned-size(16),
       data::binary>> = :atomvm.read_priv(app, icon_name)
