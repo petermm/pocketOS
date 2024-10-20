@@ -18,6 +18,26 @@ defmodule HAL do
     open_ili9342c_display(platform)
   end
 
+  def init("t-deck") do
+    :ledc.timer_config(
+      duty_resolution: 8,
+      timer_num: 0,
+      freq_hz: 1000,
+      speed_mode: 0
+    )
+
+    :ledc.channel_config(
+      channel: 0,
+      speed_mode: 0,
+      duty: 191,
+      gpio_num: 42,
+      timer_sel: 0,
+      hpoint: 0
+    )
+
+    open_ili9342c_display("t-deck")
+  end
+
   defp open_sdl_display do
     display_opts = [
       width: 320,
@@ -72,6 +92,19 @@ defmodule HAL do
     ]
   end
 
+  defp get_spi_display_opts("t-deck") do
+    [
+      width: 320,
+      height: 240,
+      compatible: "sitronix,st7789",
+      cs: 12,
+      dc: 11,
+      rotation: 1,
+      enable_tft_invon: true,
+      init_seq_type: "alt_gamma_2"
+    ]
+  end
+
   def get_input_devices({"m5stack", "faces"}) do
     {:ok, face} = :face.start_link()
     :ok = :gen_server.call(face, :open)
@@ -86,6 +119,15 @@ defmodule HAL do
   defp open_display_spi_host("esp32-devkit") do
     spi_opts = %{
       bus_config: %{sclk: 19, mosi: 23, miso: 25, peripheral: "spi2"},
+      device_config: %{}
+    }
+
+    :spi.open(spi_opts)
+  end
+
+  defp open_display_spi_host("t-deck") do
+    spi_opts = %{
+      bus_config: %{sclk: 40, mosi: 41, miso: 38, peripheral: "spi2"},
       device_config: %{}
     }
 
