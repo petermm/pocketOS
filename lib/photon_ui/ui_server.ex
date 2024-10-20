@@ -301,15 +301,30 @@ defmodule PhotonUI.Widgets.ImageState do
   end
 end
 
+defmodule PhotonUI.Widgets.Rectangle do
+  @enforce_keys [:name]
+  defstruct [:name, :x, :y, :width, :height, :color]
+
+  @bg_color 0xFFFFFF
+
+  def render(rect_widget, _name, _ui_state, origin_x, origin_y, acc) do
+    %__MODULE__{x: x, y: y, width: width, height: height, color: color} = rect_widget
+    [{:rect, origin_x + x, origin_y + y, width, height, color || @bg_color} | acc]
+  end
+end
+
 defmodule PhotonUI.Widgets.Text do
   @enforce_keys [:name]
-  defstruct [:name, :x, :y, :width, :height, :text]
+  defstruct [:name, :x, :y, :width, :height, :bgcolor, text: "", color: 0x000000]
 
   @bg_color 0xFFFFFF
 
   def render(text_widget, _name, _ui_state, origin_x, origin_y, acc) do
-    %Text{text: text, x: x, y: y} = text_widget
-    [{:text, origin_x + x, origin_y + y, :default16px, 0x000000, @bg_color, text} | acc]
+    %Text{text: text, x: x, y: y, color: color, bgcolor: bgcolor} = text_widget
+
+    [
+      {:text, origin_x + x, origin_y + y, :default16px, color, bgcolor || @bg_color, text} | acc
+    ]
   end
 end
 
