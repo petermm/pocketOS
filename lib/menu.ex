@@ -37,6 +37,10 @@ defmodule UI.Menu do
     UIServer.start_link(__MODULE__, args, opts)
   end
 
+  def start_monitor(args, opts) do
+    UIServer.start_monitor(__MODULE__, args, opts)
+  end
+
   def init(_opts) do
     {:ok, {@ui, %{}}, nil}
   end
