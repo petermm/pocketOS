@@ -456,8 +456,16 @@ defmodule PhotonUI.UIServer do
 
   @bg_color 0xFFFFFF
 
+  def start(module, args, opts) do
+    :avm_scene.start(__MODULE__, [{module, opts} | args], opts)
+  end
+
   def start_link(module, args, opts) do
     :avm_scene.start_link(__MODULE__, [{module, opts} | args], opts)
+  end
+
+  def start_monitor(module, args, opts) do
+    :avm_scene.start_monitor(__MODULE__, [{module, opts} | args], opts)
   end
 
   def init([{module, opts} | args]) do
@@ -598,6 +606,9 @@ defmodule PhotonUI.UIServer do
 
               {:noreply, _new_ui, _new_custom_state} = t ->
                 t
+
+              {:stop, reason, new_custom_state} ->
+                {:stop, reason, {widgets, new_widget_state}, new_custom_state}
             end
             |> to_avm_scene_result(state)
 
