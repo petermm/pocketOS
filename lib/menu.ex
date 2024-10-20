@@ -1,29 +1,78 @@
-alias PhotonUI.Widgets.IconGridView
 alias PhotonUI.Widgets.Container
+alias PhotonUI.Widgets.IconGridView
+alias PhotonUI.Widgets.VerticalLayout
+alias PhotonUI.Widgets.Rectangle
+alias PhotonUI.Widgets.Text
 alias PhotonUI.UIServer
 
 defmodule UI.Menu do
-  @ui [
-    %Container{
-      name: :cont,
-      x: 0,
-      y: 0,
-      width: 320,
-      height: 240,
-      children: [
-        %IconGridView{
-          name: :grid,
-          x: 0,
-          y: 0,
-          height: 240,
-          width: 320,
-          icon_size: 64,
-          cell_width: 80,
-          cell_height: 100
-        }
-      ]
-    }
-  ]
+  def get_ui do
+    avail_mem =
+      try do
+        "#{div(:erlang.system_info(:esp32_free_heap_size), 1024)} K"
+      rescue
+        _ -> "~~~ K"
+      end
+
+    [
+      %VerticalLayout{
+        name: :vl,
+        x: 0,
+        y: 0,
+        width: 320,
+        height: 240,
+        spacing: 1,
+        children: [
+          %Container{
+            name: :title_bar,
+            x: 0,
+            y: 0,
+            width: 320,
+            height: 16,
+            children: [
+              %Rectangle{
+                name: :title_label_bg,
+                x: 0,
+                y: 0,
+                height: 16,
+                width: 320,
+                color: 0x000000
+              },
+              %Text{
+                name: :title_label,
+                x: 8,
+                y: 0,
+                height: 16,
+                width: byte_size(" Menu ") * 8,
+                text: " Menu ",
+                bgcolor: 0x4792EC
+              },
+              %Text{
+                name: :memory_label,
+                x: 320 - byte_size(avail_mem) * 8 - 4,
+                y: 0,
+                height: 16,
+                width: byte_size(avail_mem) * 8,
+                text: avail_mem,
+                color: 0xFFFFFF,
+                bgcolor: 0x000000
+              }
+            ]
+          },
+          %IconGridView{
+            name: :grid,
+            x: 0,
+            y: 0,
+            height: 235,
+            width: 320,
+            icon_size: 64,
+            cell_width: 80,
+            cell_height: 100
+          }
+        ]
+      }
+    ]
+  end
 
   @menu_model [
     %{
@@ -42,7 +91,7 @@ defmodule UI.Menu do
   end
 
   def init(_opts) do
-    {:ok, {@ui, %{}}, nil}
+    {:ok, {get_ui(), %{}}, nil}
   end
 
   def handle_call(_msg, _from, state) do
@@ -65,6 +114,13 @@ defmodule UI.Menu do
       |> UIServer.apply_widget_state_update(ui)
 
     {:noreply, updated_ui, state}
+  end
+
+  def handle_event(:grid, {:clicked, _index, %{app: app} = _item}, _ui, state) do
+    Process.whereis(:ui_server)
+    |> send({:show, app})
+
+    {:stop, :normal, state}
   end
 
   def handle_event(name, what, _ui, state) do
