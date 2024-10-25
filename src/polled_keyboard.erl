@@ -26,7 +26,7 @@ init([]) ->
     {ok, #state{}}.
 
 handle_call(open, _From, _State) ->
-    GPIO = gpio:open(),
+    GPIO = gpio:start(),
 
     gpio:set_direction(GPIO, ?GPIO_KEYB_POWERON, output),
     gpio:set_level(GPIO, ?GPIO_KEYB_POWERON, high),
