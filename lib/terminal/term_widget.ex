@@ -64,7 +64,7 @@ defmodule UI.Terminal.TermWidgetState do
     end
   end
 
-  def handle_input(term_state, {:keyboard, :down, code}, _ts) do
+  def handle_input(term_state, {:keyboard, :down, code}, _ts) when is_integer(code) do
     {term_state, [event: {:got_char, code}]}
   end
 

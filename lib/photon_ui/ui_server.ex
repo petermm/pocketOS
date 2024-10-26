@@ -236,7 +236,7 @@ defmodule PhotonUI.Widgets.IconGridViewState do
     end
   end
 
-  def handle_input(grid_state, {:keyboard, :up, 274}, _ts) do
+  def handle_input(grid_state, {:keyboard, :up, :down}, _ts) do
     %{selected_index: selected_index, count: count} = grid_state
 
     next_index = rem(selected_index + 1, count)
@@ -633,7 +633,7 @@ defmodule PhotonUI.UIServer do
   def default_input_handler(_widget, event, _ts) do
     case event do
       # SDL down arrow
-      {:keyboard, :up, 274} -> :release_focus
+      {:keyboard, :up, :down} -> :release_focus
       _ -> :none
     end
   end
