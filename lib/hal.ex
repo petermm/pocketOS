@@ -146,10 +146,21 @@ defmodule HAL do
   defp open_display_spi_host("t-deck") do
     spi_opts = %{
       bus_config: %{sclk: 40, mosi: 41, miso: 38, peripheral: "spi2"},
-      device_config: %{}
+      device_config: %{
+        radio: %{
+          clock_speed_hz: 1_000_000,
+          mode: 0,
+          cs: 9,
+          address_len_bits: 0
+        }
+      }
     }
 
-    :spi.open(spi_opts)
+    spi = :spi.open(spi_opts)
+
+    true = :erlang.register(:main_spi, spi)
+
+    spi
   end
 
   defp open_display_spi_host({"m5stack", "faces"}) do
@@ -182,6 +193,27 @@ defmodule HAL do
       _ ->
         IO.puts("Failed to open display")
         :error
+    end
+  end
+
+  def get_peripheral_config(periph) do
+    get_peripheral_config(@platform, periph)
+  end
+
+  defp get_peripheral_config("t-deck", "radio") do
+    case :erlang.whereis(:main_spi) do
+      :undefined ->
+        :error
+
+      spi ->
+        {:ok,
+         %{
+           spi: spi,
+           device_name: :radio,
+           irq: 45,
+           reset: 17,
+           busy: 13
+         }}
     end
   end
 end
