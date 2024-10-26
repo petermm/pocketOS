@@ -109,7 +109,25 @@ defmodule HAL do
     {:ok, face} = :face.start_link()
     :ok = :gen_server.call(face, :open)
     :ok = :gen_server.call(face, {:subscribe_input, :all})
-    [keyboard_server: face]
+    [keyboard_server: [face]]
+  end
+
+  def get_input_devices("t-deck") do
+    {:ok, face} = :polled_keyboard.start_link()
+    :ok = :gen_server.call(face, :open)
+    :ok = :gen_server.call(face, {:subscribe_input, :all})
+
+    {:ok, buttons} = :buttons.start_link()
+
+    :ok =
+      :gen_server.call(
+        buttons,
+        {:open, %{0 => :central, 1 => :left, 2 => :right, 3 => :up, 15 => :down}}
+      )
+
+    :ok = :gen_server.call(buttons, {:subscribe_input, :all})
+
+    [keyboard_server: [face, buttons]]
   end
 
   def get_input_devices(_) do

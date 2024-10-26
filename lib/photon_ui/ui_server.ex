@@ -476,9 +476,11 @@ defmodule PhotonUI.UIServer do
       nil ->
         :ok
 
-      server ->
-        IO.puts("Subscribed to keyboard server.")
-        :gen_server.call(server, {:subscribe_input, :all})
+      servers when is_list(servers) ->
+        Enum.each(servers, fn server ->
+          IO.puts("Subscribed to keyboard server.")
+          :gen_server.call(server, {:subscribe_input, :all})
+        end)
     end
 
     {:ok, {widgets, _initial_widget_state}, custom_state} = module.init(args)
