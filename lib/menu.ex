@@ -80,6 +80,12 @@ defmodule UI.Menu do
       text: "ALisp",
       app: UI.Terminal,
       args: [mf: {:arepl, :start}]
+    },
+    %{
+      source: {:pocket_os, "icons/apps/terminal.rgba"},
+      text: "MeshT CLI",
+      app: UI.Terminal,
+      args: [mf: {CLIApps.MeshtasticClient, :start}]
     }
   ]
 
