@@ -27,12 +27,12 @@ defmodule UI do
       {:rect, 0, 0, width, height, @bg_color}
     ]
 
-    :erlang.send_after(3000, self(), {:show, UI.Menu})
+    :erlang.send_after(3000, self(), {:show, UI.Menu, []})
 
     {:noreply, state, [{:push, items}]}
   end
 
-  def handle_info({:show, what}, %{display_server: display} = state) do
+  def handle_info({:show, what, args}, %{display_server: display} = state) do
     IO.puts("settings")
 
     # TODO: keyboard_server might be optional, let's handle it as optional
@@ -41,7 +41,7 @@ defmodule UI do
     # TODO: same here, keyboard_server might be optional
     {:ok, {settings, _settings_ref}} =
       apply(what, :start_monitor, [
-        Enum.into(state, []),
+        args ++ Enum.into(state, []),
         [
           display_server: display,
           height: height,

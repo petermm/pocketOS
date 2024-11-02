@@ -35,12 +35,23 @@ defmodule UI.Terminal do
     UIServer.start_monitor(__MODULE__, args, opts)
   end
 
-  def init(_opts) do
+  def init([{:mf, {module, function}} | _t] = opts) do
     leader = self()
 
     spawn(fn ->
       :erlang.group_leader(leader, self())
-      :arepl.start()
+      apply(module, function, [])
+    end)
+
+    {:ok, {@ui, %{}}, %__MODULE__{}}
+  end
+
+  def init([{:mfa, {module, function, args}} | _t] = opts) do
+    leader = self()
+
+    spawn(fn ->
+      :erlang.group_leader(leader, self())
+      apply(module, function, args)
     end)
 
     {:ok, {@ui, %{}}, %__MODULE__{}}

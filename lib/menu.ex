@@ -78,7 +78,8 @@ defmodule UI.Menu do
     %{
       source: {:pocket_os, "icons/apps/terminal.rgba"},
       text: "ALisp",
-      app: UI.Terminal
+      app: UI.Terminal,
+      args: [mf: {:arepl, :start}]
     }
   ]
 
@@ -116,9 +117,9 @@ defmodule UI.Menu do
     {:noreply, updated_ui, state}
   end
 
-  def handle_event(:grid, {:clicked, _index, %{app: app} = _item}, _ui, state) do
+  def handle_event(:grid, {:clicked, _index, %{app: app, args: args} = _item}, _ui, state) do
     Process.whereis(:ui_server)
-    |> send({:show, app})
+    |> send({:show, app, args})
 
     {:stop, :normal, state}
   end
