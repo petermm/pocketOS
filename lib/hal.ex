@@ -19,21 +19,27 @@ defmodule HAL do
   end
 
   def init("t-deck") do
-    :ledc.timer_config(
-      duty_resolution: 8,
-      timer_num: 0,
-      freq_hz: 1000,
-      speed_mode: 0
-    )
+    gpio = :gpio.start()
 
-    :ledc.channel_config(
-      channel: 0,
-      speed_mode: 0,
-      duty: 191,
-      gpio_num: 42,
-      timer_sel: 0,
-      hpoint: 0
-    )
+    board_power_on = 10
+
+    :gpio.init(board_power_on)
+    :gpio.set_pin_mode(board_power_on, :output)
+    :gpio.digital_write(board_power_on, :high)
+
+    backlight_gpio = 42
+
+    :gpio.init(backlight_gpio)
+    :gpio.set_pin_mode(backlight_gpio, :output)
+
+    :gpio.digital_write(backlight_gpio, :high)
+    :timer.sleep(1)
+
+    Enum.each(0..7, fn _ ->
+      :gpio.digital_write(backlight_gpio, :low)
+      :gpio.digital_write(backlight_gpio, :high)
+    end)
+
 
     open_ili9342c_display("t-deck")
   end
@@ -113,6 +119,8 @@ defmodule HAL do
   end
 
   def get_input_devices("t-deck") do
+    # wait the keyboard for 500 ms
+    :timer.sleep(500)
     {:ok, face} = :polled_keyboard.start_link()
     :ok = :gen_server.call(face, :open)
     :ok = :gen_server.call(face, {:subscribe_input, :all})
