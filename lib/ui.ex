@@ -38,6 +38,16 @@ defmodule UI do
     # TODO: keyboard_server might be optional, let's handle it as optional
     %{width: width, height: height, keyboard_server: keyboard_server} = state
 
+    ## TODO: load an app from a beam file
+    # examples:
+    # 1.
+    # :code.load_abs('/path/to/module/Elixir.MyApp')
+    # 2.
+    # {:ok, fd} = :atomvm.posix_open('/path/to/module/Elixir.MyApp.beam', [:o_rdonly])
+    # {:ok, bin} = :atomvm.posix_read(fd, 65535)
+    # :ok = :atomvm.posix_close(fd)
+    # :code.load_binary(Elixir.MyApp, 'Elixir.MyApp.beam', bin)
+
     # TODO: same here, keyboard_server might be optional
     {:ok, {settings, _settings_ref}} =
       apply(what, :start_monitor, [
