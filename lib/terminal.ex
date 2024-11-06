@@ -163,18 +163,13 @@ defmodule UI.Terminal do
     Enum.chunk_while(lines_list, {initial_col, []}, chunk_fun, after_fun)
   end
 
-  defp do_unicode_write(unicode_bin, ui) when is_binary(unicode_bin) do
-    unicode_bin
-    |> :unicode.characters_to_list()
-    |> do_unicode_write(ui)
-  end
-
-  defp do_unicode_write(unicode_list, ui) do
+  defp do_unicode_write(unicode_data, ui) do
     old_buffer = UIServer.get_property!(ui, :term_widget, :buffer)
     old_cursor_col_pos = UIServer.get_property!(ui, :term_widget, :cursor_col_pos)
 
     reverse_chunks =
-      unicode_list
+      unicode_data
+      |> :unicode.characters_to_list()
       |> split_lines(old_cursor_col_pos)
       |> Enum.reduce([], fn line, acc -> [:unicode.characters_to_binary(line) | acc] end)
 
