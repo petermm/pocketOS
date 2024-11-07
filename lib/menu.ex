@@ -81,6 +81,14 @@ defmodule UI.Menu do
       app: UI.Terminal,
       args: [mf: {:arepl, :start}]
     },
+    # TODO: add WASM entries
+    # WASM example:
+    #    %{
+    #      source: {:pocket_os, "icons/apps/terminal.rgba"},
+    #      text: "WASM",
+    #      app: UI.Terminal,
+    #      args: [mfa: {WASMLauncher, :start, ["wasi_hello_world.wasm"]}]
+    #    },
     %{
       source: {:pocket_os, "icons/apps/terminal.rgba"},
       text: "MeshT CLI",
