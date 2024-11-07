@@ -3,7 +3,8 @@ defmodule HAL do
 
   # @platform "linux"
   # @platform "esp32-devkit"
-  @platform {"m5stack", "faces"}
+  # @platform {"m5stack", "faces"}
+  @platform "t-deck"
 
   def init() do
     IO.puts("Platform is: #{inspect(@platform)}")
@@ -39,7 +40,6 @@ defmodule HAL do
       :gpio.digital_write(backlight_gpio, :low)
       :gpio.digital_write(backlight_gpio, :high)
     end)
-
 
     open_ili9342c_display("t-deck")
   end
