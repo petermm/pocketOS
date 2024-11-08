@@ -13,6 +13,12 @@ defmodule Main do
       ]
 
       {:ok, _ui} = UI.start_link(opts, [display_server: display_server] ++ opts)
+
+      if HAL.has_peripheral?("radio") do
+        RadioLauncher.start()
+      else
+        :ok
+      end
     else
       _ ->
         IO.puts("Failed HAL init.")

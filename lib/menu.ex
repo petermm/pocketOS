@@ -91,12 +91,6 @@ defmodule UI.Menu do
     #    },
     %{
       source: {:pocket_os, "icons/apps/terminal.rgba"},
-      text: "MeshT CLI",
-      app: UI.Terminal,
-      args: [mf: {CLIApps.MeshtasticClient, :start}]
-    },
-    %{
-      source: {:pocket_os, "icons/apps/terminal.rgba"},
       text: "Lora Mon",
       app: UI.Terminal,
       args: [mf: {CLIApps.LoraMonitor, :start}]

@@ -204,6 +204,13 @@ defmodule HAL do
     end
   end
 
+  def has_peripheral?(periph) do
+    has_peripheral?(@platform, periph)
+  end
+
+  defp has_peripheral?("t-deck", "radio"), do: true
+  defp has_peripheral?(_, _), do: false
+
   def get_peripheral_config(periph) do
     get_peripheral_config(@platform, periph)
   end
@@ -216,6 +223,7 @@ defmodule HAL do
       spi ->
         {:ok,
          %{
+           radio_module: :lora_sx126x,
            spi: spi,
            device_name: :radio,
            irq: 45,
