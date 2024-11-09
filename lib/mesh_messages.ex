@@ -1,11 +1,11 @@
 alias PhotonUI.Widgets.Container
-alias PhotonUI.Widgets.IconGridView
+alias PhotonUI.Widgets.IconListView
 alias PhotonUI.Widgets.VerticalLayout
 alias PhotonUI.Widgets.Rectangle
 alias PhotonUI.Widgets.Text
 alias PhotonUI.UIServer
 
-defmodule UI.Menu do
+defmodule UI.MeshMessages do
   def get_ui do
     avail_mem =
       try do
@@ -43,8 +43,8 @@ defmodule UI.Menu do
                 x: 8,
                 y: 0,
                 height: 16,
-                width: byte_size(" Menu ") * 8,
-                text: " Menu ",
+                width: byte_size(" Mesh Messages ") * 8,
+                text: " Mesh Messages ",
                 bgcolor: 0x4792EC
               },
               %Text{
@@ -59,49 +59,19 @@ defmodule UI.Menu do
               }
             ]
           },
-          %IconGridView{
+          %IconListView{
             name: :grid,
             x: 0,
             y: 0,
             height: 235,
             width: 320,
-            icon_size: 64,
-            cell_width: 80,
-            cell_height: 100
+            icon_size: 32,
+            cell_height: 40
           }
         ]
       }
     ]
   end
-
-  @menu_model [
-    %{
-      source: {:pocket_os, "icons/apps/terminal.rgba"},
-      text: "ALisp",
-      app: UI.Terminal,
-      args: [mf: {:arepl, :start}]
-    },
-    # TODO: add WASM entries
-    # WASM example:
-    #    %{
-    #      source: {:pocket_os, "icons/apps/terminal.rgba"},
-    #      text: "WASM",
-    #      app: UI.Terminal,
-    #      args: [mfa: {WASMLauncher, :start, ["wasi_hello_world.wasm"]}]
-    #    },
-    %{
-      source: {:pocket_os, "icons/apps/terminal.rgba"},
-      text: "Lora Mon",
-      app: UI.Terminal,
-      args: [mf: {CLIApps.LoraMonitor, :start}]
-    },
-    %{
-      source: {:pocket_os, "icons/apps/mail.rgba"},
-      text: "MeshMsgs",
-      app: UI.MeshMessages,
-      args: []
-    }
-  ]
 
   def start_link(args, opts) do
     UIServer.start_link(__MODULE__, args, opts)
@@ -129,19 +99,44 @@ defmodule UI.Menu do
   end
 
   def handle_event(:ui, :shown, ui, state) do
+    inbox_model =
+      :micronesia.all(:meshtastic_message)
+      |> Enum.map(fn {:meshtastic_message, packet_id, payload} ->
+        %{
+          id: packet_id,
+          text: payload,
+          source: {:pocket_os, "icons/32/generic/new_mail.rgba"}
+        }
+      end)
+
+    exit = %{
+      id: :exit,
+      text: "Exit",
+      source: {:pocket_os, "icons/32/generic/go_back.rgba"}
+    }
+
+    compose = %{
+      id: :compose,
+      text: "Compose",
+      source: {:pocket_os, "icons/32/generic/mail_doc.rgba"}
+    }
+
+    list_model = [exit, compose | inbox_model]
+
     updated_ui =
       UIServer.begin_widget_state_update(ui)
-      |> UIServer.update_property!(:grid, :model, @menu_model)
+      |> UIServer.update_property!(:grid, :model, list_model)
       |> UIServer.apply_widget_state_update(ui)
 
     {:noreply, updated_ui, state}
   end
 
-  def handle_event(:grid, {:clicked, _index, %{app: app, args: args} = _item}, _ui, state) do
-    Process.whereis(:ui_server)
-    |> send({:show, app, args})
-
+  def handle_event(:grid, {:clicked, _index, %{id: :exit} = _item}, _ui, state) do
     {:stop, :normal, state}
+  end
+
+  def handle_event(:grid, {:clicked, _index, %{id: _id} = _item}, _ui, state) do
+    {:noreply, state}
   end
 
   def handle_event(name, what, _ui, state) do
