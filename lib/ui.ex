@@ -33,8 +33,6 @@ defmodule UI do
   end
 
   def handle_info({:show, what, args}, %{display_server: display} = state) do
-    IO.puts("settings")
-
     # TODO: keyboard_server might be optional, let's handle it as optional
     %{width: width, height: height, keyboard_server: keyboard_server} = state
 
@@ -49,7 +47,7 @@ defmodule UI do
     # :code.load_binary(Elixir.MyApp, 'Elixir.MyApp.beam', bin)
 
     # TODO: same here, keyboard_server might be optional
-    {:ok, {settings, _settings_ref}} =
+    {:ok, {app_proc, _app_ref_ref}} =
       apply(what, :start_monitor, [
         args ++ Enum.into(state, []),
         [
@@ -60,9 +58,16 @@ defmodule UI do
         ]
       ])
 
-    PhotonUI.UIServer.show(settings)
+    PhotonUI.UIServer.show(app_proc)
 
-    {:noreply, state}
+    updated_state =
+      if what == UI.Menu do
+        Map.put(state, :menu_proc, app_proc)
+      else
+        state
+      end
+
+    {:noreply, updated_state}
   end
 
   defp error_description(foo) do
@@ -75,7 +80,13 @@ defmodule UI do
     {title, message}
   end
 
-  def handle_info({:DOWN, _ref, :process, _pid, :normal, state}) do
+  def handle_info({:DOWN, _ref, :process, pid, :normal}, %{menu_proc: pid} = state) do
+    {:noreply, Map.delete(state, :menu_proc)}
+  end
+
+  def handle_info({:DOWN, _ref, :process, _pid, :normal}, state) do
+    send(self(), {:show, UI.Menu, []})
+
     {:noreply, state}
   end
 
