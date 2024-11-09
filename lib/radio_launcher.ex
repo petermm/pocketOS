@@ -1,5 +1,7 @@
 defmodule RadioLauncher do
   def start() do
+    MeshtasticCallbacks.init()
+
     meshtastic_medium_fast_config =
       %{
         tx_power: 14,
