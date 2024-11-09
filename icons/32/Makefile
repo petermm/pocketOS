@@ -1,7 +1,4 @@
-include icons.mk
-
-SUBDIRS = 32 \
-					64
+SUBDIRS = generic
 
 .PHONY: subdirs $(SUBDIRS)
 

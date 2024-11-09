@@ -1,15 +1,16 @@
 include ../../icons.mk
 
 PRIV := ../../../priv
-DEST_PATH := $(PRIV)/icons/apps
+DEST_PATH := $(PRIV)/icons/32/generic
 
 .PHONY: directories
 
 all: \
 		directories \
-    $(DEST_PATH)/mail.rgba \
-    $(DEST_PATH)/mail_none.rgba \
-    $(DEST_PATH)/terminal.rgba
+    $(DEST_PATH)/go_back.rgba \
+    $(DEST_PATH)/new_mail.rgba \
+    $(DEST_PATH)/open_mail.rgba \
+    $(DEST_PATH)/mail_doc.rgba
 
 directories: $(DEST_PATH)
 
