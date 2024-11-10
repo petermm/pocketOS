@@ -93,12 +93,38 @@ defmodule UI.MeshMessages do
     {:noreply, state}
   end
 
-  def handle_info(msg, state) do
+  def handle_info({:mnesia_table_event, {:write, _, _}}, ui, state) do
+    {updated_ui, new_state} = reload_model(ui, state)
+    {:noreply, updated_ui, new_state}
+  end
+
+  def handle_info(msg, ui, state) do
     :erlang.display({:handle_info, msg})
     {:noreply, state}
   end
 
   def handle_event(:ui, :shown, ui, state) do
+    :micronesia.subscribe({:table, :meshtastic_message, :simple})
+
+    {updated_ui, new_state} = reload_model(ui, state)
+
+    {:noreply, updated_ui, new_state}
+  end
+
+  def handle_event(:grid, {:clicked, _index, %{id: :exit} = _item}, _ui, state) do
+    {:stop, :normal, state}
+  end
+
+  def handle_event(:grid, {:clicked, _index, %{id: _id} = _item}, _ui, state) do
+    {:noreply, state}
+  end
+
+  def handle_event(name, what, _ui, state) do
+    :erlang.display({:handle_event, name, what})
+    {:noreply, state}
+  end
+
+  defp reload_model(ui, state) do
     inbox_model =
       :micronesia.all(:meshtastic_message)
       |> Enum.map(fn {:meshtastic_message, packet_id, payload} ->
@@ -128,19 +154,6 @@ defmodule UI.MeshMessages do
       |> UIServer.update_property!(:grid, :model, list_model)
       |> UIServer.apply_widget_state_update(ui)
 
-    {:noreply, updated_ui, state}
-  end
-
-  def handle_event(:grid, {:clicked, _index, %{id: :exit} = _item}, _ui, state) do
-    {:stop, :normal, state}
-  end
-
-  def handle_event(:grid, {:clicked, _index, %{id: _id} = _item}, _ui, state) do
-    {:noreply, state}
-  end
-
-  def handle_event(name, what, _ui, state) do
-    :erlang.display({:handle_event, name, what})
-    {:noreply, state}
+    {updated_ui, state}
   end
 end
