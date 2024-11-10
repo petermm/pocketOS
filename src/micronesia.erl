@@ -7,8 +7,8 @@
     create_table/1,
     delete_table/1,
     all/1,
-    read/1,
-    write/1,
+    dirty_read/1,
+    dirty_write/1,
     subscribe/1,
     unsubscribe/1
 ]).
@@ -37,11 +37,11 @@ delete_table(Name) ->
 all(Name) ->
     gen_server:call(micronesia, {all, Name}).
 
-read({_Name, _Id} = T) ->
-    gen_server:call(micronesia, {read, T}).
+dirty_read({_Name, _Id} = T) ->
+    gen_server:call(micronesia, {dirty_read, T}).
 
-write(Record) ->
-    gen_server:call(micronesia, {write, Record}).
+dirty_write(Record) ->
+    gen_server:call(micronesia, {dirty_write, Record}).
 
 subscribe({table, Tab, simple}) ->
     gen_server:call(micronesia, {subscribe, table, Tab, simple}).
@@ -78,7 +78,7 @@ handle_call({all, TableName}, _From, State) ->
         _ ->
             {reply, error, State}
     end;
-handle_call({read, {TableName, Id}}, _From, State) ->
+handle_call({dirty_read, {TableName, Id}}, _From, State) ->
     Tables = State#state.tables,
     case Tables of
         #{TableName := Table} ->
@@ -92,7 +92,7 @@ handle_call({read, {TableName, Id}}, _From, State) ->
         _ ->
             {reply, error, State}
     end;
-handle_call({write, Record}, {Client, _Tag}, State) ->
+handle_call({dirty_write, Record}, {Client, _Tag}, State) ->
     TableName = element(1, Record),
     RecordId = element(2, Record),
     Columns = erlang:delete_element(1, Record),
