@@ -10,6 +10,8 @@ parse(Payload) ->
                 dest => DestAddr,
                 src => SrcAddr,
                 packet_id => PktId,
+                hop_start => HopStart,
+                via_mqtt => to_bool(ViaMqtt),
                 want_ack => to_bool(WantAck),
                 hop_limit => HopLimit,
                 channel_hash => ChannelHash,
@@ -26,15 +28,18 @@ serialize(#{
     dest := DestAddr,
     src := SrcAddr,
     packet_id := PktId,
+    hop_start := HopStart,
+    via_mqtt := ViaMqttBool,
     want_ack := WantAckBool,
     hop_limit := HopLimit,
     channel_hash := ChannelHash,
     encrypted_data := Data
 }) ->
+    ViaMqtt = bool_to_int(ViaMqttBool),
     WantAck = bool_to_int(WantAckBool),
     <<DestAddr:32/little-unsigned-integer, SrcAddr:32/little-unsigned-integer,
-        PktId:32/little-unsigned-integer, 0:4, WantAck:1, HopLimit:3, ChannelHash:8, 0:16,
-        Data/binary>>.
+        PktId:32/little-unsigned-integer, HopStart:3, ViaMqtt:1, WantAck:1, HopLimit:3,
+        ChannelHash:8, 0:16, Data/binary>>.
 
 bool_to_int(false) -> 0;
 bool_to_int(true) -> 1.
