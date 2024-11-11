@@ -14,7 +14,7 @@
     handle_info/2
 ]).
 
--record(state, {radio, callbacks, last_seen = #{}}).
+-record(state, {radio, callbacks, node_id, last_seen = #{}}).
 
 -define(PACKET_SEEN_EXPIRY_SEC, 30).
 
@@ -36,22 +36,30 @@ handle_call({handle_payload, {_IfaceId, _Pid}, Payload, _Attributes}, _From, Sta
                 State#state.last_seen, Src, PacketId, MonotonicTS
             ),
             PrunedLastSeen = prune_expired_last_seen(UpdatedLastSeen, MonotonicTS),
+            IsRecipient = is_recipient(Packet, State),
             if
-                not Duplicated ->
+                not Duplicated and IsRecipient ->
                     case meshtastic:decrypt(Packet) of
                         #{data := Decrypted} = DecryptedPacket ->
                             Message = meshtastic_proto:decode(Decrypted),
                             DecodedPacket = DecryptedPacket#{message => Message},
                             maybe_callback(State#state.callbacks, message_cb, DecodedPacket),
-                            {reply, ok, State#state{last_seen = PrunedLastSeen}};
+                            RebroadcastState = maybe_rebroadcast(Packet, State#state{
+                                last_seen = PrunedLastSeen
+                            }),
+                            {reply, ok, RebroadcastState};
                         Undecryptable ->
                             % We don't update last seen when we receive a corrupt packet
                             % just in case next retransmision is ok
                             io:format("Failed meshtastic decrypt: ~p.~n", [Undecryptable]),
                             {reply, discard, State}
                     end;
+                not Duplicated ->
+                    RebroadcastState = maybe_rebroadcast(Packet, State#state{
+                        last_seen = PrunedLastSeen
+                    }),
+                    {reply, ok, RebroadcastState};
                 true ->
-                    io:format("Discarding duplicated: ~p.~n", [PacketId]),
                     {reply, discard, State}
             end;
         _SomethingElse ->
@@ -70,6 +78,24 @@ maybe_callback(undefined, _, _) ->
     ok;
 maybe_callback(Mod, Callback, Arg) ->
     Mod:Callback(Arg).
+
+is_recipient(#{dest := Dest}, #state{node_id = NodeId} = State) ->
+    case Dest of
+        NodeId -> true;
+        16#FFFFFFFF -> true;
+        _ -> false
+    end.
+
+maybe_rebroadcast(#{dest := Dest}, #state{node_id = Dest} = State) ->
+    State;
+maybe_rebroadcast(#{hop_limit := 0} = Packet, State) ->
+    State;
+maybe_rebroadcast(
+    #{hop_limit := HopLimit} = Packet, #state{radio = {_RadioId, RadioModule, Radio}} = State
+) ->
+    RadioPayload = meshtastic:serialize(Packet#{hop_limit := HopLimit - 1}),
+    RadioModule:broadcast(Radio, RadioPayload),
+    State.
 
 update_last_seen(LastSeenMap, Source, PacketId, MonotonicSec) ->
     {AlreadySeen, UpdatedLastSeenMap} =

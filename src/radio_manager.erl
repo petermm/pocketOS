@@ -19,11 +19,13 @@ start_link(RadioConfig, ModuleArg) ->
     gen_server:start_link(?MODULE, [RadioConfig, ModuleArg], []).
 
 init([#{radio_module := RadioModule} = RadioConfig, MA]) ->
+    RadioId = RadioModule,
+
     {ok, Radio} = RadioModule:start(RadioConfig#{receive_handler => self()}),
 
     Handlers = lists:filtermap(
         fun({Module, Args}) ->
-            case Module:start_link(Radio, Args) of
+            case Module:start_link({RadioId, RadioModule, Radio}, Args) of
                 {ok, Server} ->
                     {true, {Module, Server}};
                 Error ->

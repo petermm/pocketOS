@@ -8,10 +8,18 @@ defmodule MeshtasticServerTest do
     end
   end
 
+  defmodule TestRadio do
+    def broadcast(:mock, payload) do
+      :io.format("Going to send ~p~n", [payload])
+      :ok
+    end
+  end
+
   test "handle a text message" do
     Process.register(self(), :meshtastic_server_tester)
 
-    {:ok, server} = :meshtastic_server.start_link(:undefined, callbacks: TestCallbacks)
+    {:ok, server} =
+      :meshtastic_server.start_link({TestRadio, TestRadio, :mock}, callbacks: TestCallbacks)
 
     iface = {:mock, :undefined}
 
@@ -40,7 +48,8 @@ defmodule MeshtasticServerTest do
   test "duplicates are discarded" do
     Process.register(self(), :meshtastic_server_tester)
 
-    {:ok, server} = :meshtastic_server.start_link(:undefined, callbacks: TestCallbacks)
+    {:ok, server} =
+      :meshtastic_server.start_link({TestRadio, TestRadio, :mock}, callbacks: TestCallbacks)
 
     iface = {:mock, :undefined}
 
