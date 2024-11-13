@@ -234,7 +234,20 @@ defmodule PhotonUI.Widgets.IconListViewState do
     end
   end
 
-  def handle_input(grid_state, {:keyboard, :up, :down}, _ts) do
+  def handle_input(grid_state, {:keyboard, :down, :up}, _ts) do
+    %{selected_index: selected_index, count: count} = grid_state
+
+    next_index =
+      case rem(selected_index - 1, count) do
+        -1 -> count - 1
+        pos -> pos
+      end
+
+    {%__MODULE__{grid_state | selected_index: next_index},
+     [event: {:selected_item_changed, next_index}]}
+  end
+
+  def handle_input(grid_state, {:keyboard, :down, :down}, _ts) do
     %{selected_index: selected_index, count: count} = grid_state
 
     next_index = rem(selected_index + 1, count)
