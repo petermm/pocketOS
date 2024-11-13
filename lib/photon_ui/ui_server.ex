@@ -517,7 +517,7 @@ defmodule PhotonUI.Widgets.TextInputState do
     :release_focus
   end
 
-  def handle_input(text_input_state, {:keyboard, :down, code}, _ts) do
+  def handle_input(text_input_state, {:keyboard, :down, code}, _ts) when is_integer(code) do
     %TextInputState{text: old_text, cursor_pos: old_cursor_pos} = text_input_state
 
     {updated_text, updated_cursor_pos} = update_text(old_text, code, old_cursor_pos)
