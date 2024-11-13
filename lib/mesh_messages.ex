@@ -1,8 +1,10 @@
+alias PhotonUI.Widgets.Button
 alias PhotonUI.Widgets.Container
 alias PhotonUI.Widgets.IconListView
 alias PhotonUI.Widgets.VerticalLayout
 alias PhotonUI.Widgets.Rectangle
 alias PhotonUI.Widgets.Text
+alias PhotonUI.Widgets.TextInput
 alias PhotonUI.UIServer
 
 defmodule UI.MeshMessages do
@@ -73,6 +75,41 @@ defmodule UI.MeshMessages do
     ]
   end
 
+  @compose_ui [
+    %VerticalLayout{
+      name: :vl,
+      x: 0,
+      y: 0,
+      width: 320,
+      height: 240,
+      spacing: 1,
+      children: [
+        %Text{
+          name: :message_label,
+          text: "Message: ",
+          height: 16,
+          x: 0,
+          y: 0
+        },
+        %TextInput{
+          name: :message_input,
+          x: 0,
+          y: 0,
+          height: 16,
+          width: 320
+        },
+        %Button{
+          name: :send_button,
+          x: 0,
+          y: 0,
+          height: 32,
+          width: 48,
+          text: "Send"
+        }
+      ]
+    }
+  ]
+
   def start_link(args, opts) do
     UIServer.start_link(__MODULE__, args, opts)
   end
@@ -113,6 +150,18 @@ defmodule UI.MeshMessages do
 
   def handle_event(:grid, {:clicked, _index, %{id: :exit} = _item}, _ui, state) do
     {:stop, :normal, state}
+  end
+
+  def handle_event(:grid, {:clicked, _index, %{id: :compose} = _item}, ui, state) do
+    {:noreply, UIServer.replace_ui(ui, @compose_ui), state}
+  end
+
+  def handle_event(:send_button, :clicked, ui, state) do
+    text = UIServer.get_property!(ui, :message_input, :text)
+
+    MeshtasticCallbacks.send_text_message(text)
+
+    {:noreply, UIServer.replace_ui(ui, get_ui()), state}
   end
 
   def handle_event(:grid, {:clicked, _index, %{id: _id} = _item}, _ui, state) do
