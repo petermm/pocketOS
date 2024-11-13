@@ -625,12 +625,25 @@ defmodule PhotonUI.UIServer do
     {:ok, {widgets, _initial_widget_state}, custom_state} = module.init(args)
 
     # TODO: merge with provided widget initial state
-    built_initial_state =
-      make_initial_state(widgets, %{
+    ui_state =
+      build_ui_state(widgets, %{
         width: opts[:width],
         height: opts[:height],
         visible: false
       })
+
+    s =
+      ui_server_state(
+        module: module,
+        ui: {widgets, ui_state},
+        custom_state: custom_state
+      )
+
+    {:ok, s}
+  end
+
+  defp build_ui_state(widgets, assigned_state) do
+    built_initial_state = make_initial_state(widgets, assigned_state)
 
     focus_list = build_focus_list(widgets, built_initial_state)
     focused_item = Enum.at(focus_list, 0)
@@ -642,14 +655,7 @@ defmodule PhotonUI.UIServer do
       |> Map.put(:"$focus_list", focus_list)
       |> Map.put(:"$mouse_area_list", mouse_area_list)
 
-    s =
-      ui_server_state(
-        module: module,
-        ui: {widgets, ui_state},
-        custom_state: custom_state
-      )
-
-    {:ok, s}
+    ui_state
   end
 
   def handle_call({:ui_server, :show}, _from, state) do
@@ -803,6 +809,11 @@ defmodule PhotonUI.UIServer do
 
     acc_with_widget_state =
       cond do
+        match?(%{^name => _state}, acc_with_children) ->
+          # This is required to avoid replacing existing state when initializing again an existing
+          # state
+          acc_with_children
+
         function_exported?(widget_type, :has_init_function, 0) ->
           struct_name = widget_type.state_struct_module()
           initialized = struct_name.init(widget)
@@ -1029,6 +1040,11 @@ defmodule PhotonUI.UIServer do
     else
       []
     end
+  end
+
+  def replace_ui({_old_widgets, old_ui_state}, new_widgets) do
+    new_ui_state = build_ui_state(new_widgets, old_ui_state)
+    {new_widgets, new_ui_state}
   end
 
   # Public API
