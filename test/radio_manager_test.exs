@@ -20,7 +20,7 @@ defmodule RadioManagerTest do
   end
 
   defmodule MockProtocolHandler do
-    def start_link(_, _) do
+    def start_link({:local, :name}, _, _) do
       {:ok, :server}
     end
 
@@ -44,7 +44,8 @@ defmodule RadioManagerTest do
       radio_module: MockRadio
     }
 
-    {:ok, _server} = :radio_manager.start_link(radio_config, [{MockProtocolHandler, []}])
+    {:ok, _server} =
+      :radio_manager.start_link(radio_config, [{{:local, :name}, MockProtocolHandler, []}])
 
     assert_receive(:tested, 5000)
     assert_receive(:tested, 5000)

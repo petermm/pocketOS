@@ -24,8 +24,8 @@ init([#{radio_module := RadioModule} = RadioConfig, MA]) ->
     {ok, Radio} = RadioModule:start(RadioConfig#{receive_handler => self()}),
 
     Handlers = lists:filtermap(
-        fun({Module, Args}) ->
-            case Module:start_link({RadioId, RadioModule, Radio}, Args) of
+        fun({Name, Module, Args}) ->
+            case Module:start_link(Name, {RadioId, RadioModule, Radio}, Args) of
                 {ok, Server} ->
                     {true, {Module, Server}};
                 Error ->

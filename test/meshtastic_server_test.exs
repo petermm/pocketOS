@@ -13,6 +13,12 @@ defmodule MeshtasticServerTest do
       :io.format("Going to send ~p~n", [payload])
       :ok
     end
+
+    def broadcast(pid, payload) do
+      :io.format("Going to send ~p~n", [payload])
+      send(pid, payload)
+      :ok
+    end
   end
 
   test "handle a text message" do
@@ -59,6 +65,31 @@ defmodule MeshtasticServerTest do
 
     :ok = :meshtastic_server.handle_payload(server, iface, payload_0, %{rssi: -28, snr: 11})
     :discard = :meshtastic_server.handle_payload(server, iface, payload_0, %{rssi: -10, snr: 12})
+
+    :ok = :gen_server.stop(server)
+    Process.unregister(:meshtastic_server_tester)
+  end
+
+  test "messages are correctly sent" do
+    Process.register(self(), :meshtastic_server_tester)
+
+    {:ok, server} =
+      :meshtastic_server.start_link({TestRadio, TestRadio, self()}, callbacks: TestCallbacks)
+
+    iface = {:mock, :undefined}
+
+    test_data =
+      <<8, 1, 18, 14, 99, 105, 97, 111, 110, 101, 32, 97, 32, 116, 117, 116, 116, 105, 72, 0>>
+
+    :ok = :meshtastic_server.send(server, 0xFFFFFFFF, test_data)
+
+    receive do
+      bin when is_binary(bin) ->
+        assert :meshtastic.parse(bin) |> elem(1) |> :meshtastic.decrypt() |> Map.fetch!(:data) ==
+                 test_data
+    after
+      5000 -> assert_receive(:fail, 0)
+    end
 
     :ok = :gen_server.stop(server)
     Process.unregister(:meshtastic_server_tester)

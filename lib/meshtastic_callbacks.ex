@@ -12,4 +12,13 @@ defmodule MeshtasticCallbacks do
   def message_cb(msg) do
     IO.puts("Got unexpected message: #{inspect(msg)}")
   end
+
+  def send_text_message(text) do
+    data =
+      %{portnum: :TEXT_MESSAGE_APP, payload: text}
+      |> :meshtastic_proto.encode()
+      |> :erlang.iolist_to_binary()
+
+    :ok = :meshtastic_server.send(:meshtastic_server, 0xFFFFFFFF, data)
+  end
 end

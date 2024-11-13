@@ -4,7 +4,9 @@
 
 -export([
     start_link/2,
-    handle_payload/4
+    start_link/3,
+    handle_payload/4,
+    send/3
 ]).
 
 -export([
@@ -14,15 +16,21 @@
     handle_info/2
 ]).
 
--record(state, {radio, callbacks, node_id, last_seen = #{}}).
+-record(state, {radio, callbacks, last_packet_id = 1, node_id = 1127302788, last_seen = #{}}).
 
 -define(PACKET_SEEN_EXPIRY_SEC, 30).
 
 start_link(Radio, MeshtasticOpts) ->
     gen_server:start_link(?MODULE, [Radio, MeshtasticOpts], []).
 
+start_link(Name, Radio, MeshtasticOpts) ->
+    gen_server:start_link(Name, ?MODULE, [Radio, MeshtasticOpts], []).
+
 handle_payload(Server, {_IfaceId, _Pid} = Iface, Payload, Attributes) ->
     gen_server:call(Server, {handle_payload, Iface, Payload, Attributes}).
+
+send(Server, DestAddr, Data) ->
+    gen_server:call(Server, {send, DestAddr, Data}).
 
 init([Radio, MeshtasticOpts]) ->
     Callbacks = proplists:get_value(callbacks, MeshtasticOpts),
@@ -65,6 +73,31 @@ handle_call({handle_payload, {_IfaceId, _Pid}, Payload, _Attributes}, _From, Sta
         _SomethingElse ->
             {reply, next, State}
     end;
+handle_call(
+    {send, DestAddr, Data},
+    _From,
+    #state{radio = {_RadioId, RadioModule, Radio}, node_id = NodeId, last_packet_id = LastPacketId} =
+        State
+) ->
+    PacketId = LastPacketId + 1,
+
+    Packet = #{
+        dest => DestAddr,
+        src => NodeId,
+        packet_id => PacketId,
+        hop_start => 3,
+        via_mqtt => false,
+        want_ack => false,
+        hop_limit => 3,
+        channel_hash => 31,
+        data => Data
+    },
+
+    Encrypted = meshtastic:encrypt(Packet),
+
+    RadioPayload = meshtastic:serialize(Encrypted),
+    RadioModule:broadcast(Radio, RadioPayload),
+    {reply, ok, State#state{last_packet_id = LastPacketId}};
 handle_call(_msg, _from, State) ->
     {reply, error, State}.
 
