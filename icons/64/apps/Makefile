@@ -7,6 +7,7 @@ DEST_PATH := $(PRIV)/icons/apps
 
 all: \
 		directories \
+    $(DEST_PATH)/map.rgba \
     $(DEST_PATH)/mail.rgba \
     $(DEST_PATH)/mail_none.rgba \
     $(DEST_PATH)/terminal.rgba
