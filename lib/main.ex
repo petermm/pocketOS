@@ -2,6 +2,8 @@ defmodule Main do
   def start() do
     :erlang.display("Hello.")
 
+    {:ok, _pubsub} = :avm_pubsub.start(:avm_pubsub)
+
     with {:ok, initialized} <- HAL.init(),
          %{display: initialized_display} <- initialized,
          %{display_server: display_server, width: width, height: height} <- initialized_display do
