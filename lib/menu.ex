@@ -100,6 +100,12 @@ defmodule UI.Menu do
       text: "MeshMsgs",
       app: UI.MeshMessages,
       args: []
+    },
+    %{
+      source: {:pocket_os, "icons/apps/map.rgba"},
+      text: "Map",
+      app: UI.Map,
+      args: []
     }
   ]
 

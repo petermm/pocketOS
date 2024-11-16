@@ -451,6 +451,10 @@ defmodule PhotonUI.Widgets.ImageState do
 
     {:rgba8888, width, height, data}
   end
+
+  def load_image({:rgba8888, _, _, _} = image) do
+    image
+  end
 end
 
 defmodule PhotonUI.Widgets.Rectangle do
