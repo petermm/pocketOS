@@ -114,14 +114,22 @@ defmodule UI.Map do
                 width: 320 - 256,
                 height: 240 - 16,
                 children: [
-                  %Button{
-                    name: :quit,
-                    x: 0,
-                    y: 0,
-                    height: 32,
-                    width: 320 - 256,
-                    text: "Quit"
-                  },
+                  # %Text{
+                  #  name: :sats_label,
+                  #  x: 0,
+                  #  y: 0,
+                  #  text: "Sats:",
+                  #  width: 320 - 256,
+                  #  height: 16
+                  # },
+                  # %Text{
+                  #  name: :sats_text,
+                  #  x: 0,
+                  #  y: 0,
+                  #  text: "#{n_sats}",
+                  #  width: 320 - 256,
+                  #  height: 16
+                  # },
                   %Text{
                     name: :spacer0,
                     x: 0,
@@ -224,6 +232,14 @@ defmodule UI.Map do
                       end,
                     width: 320 - 256,
                     height: 16
+                  },
+                  %Button{
+                    name: :quit,
+                    x: 0,
+                    y: 0,
+                    height: 32,
+                    width: 320 - 256,
+                    text: "Quit"
                   }
                 ]
               }
