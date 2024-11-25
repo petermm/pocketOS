@@ -26,7 +26,36 @@ defmodule Main do
         IO.puts("Failed HAL init.")
     end
 
+    maybe_start_network()
+
     recv_loop()
+  end
+
+  defp maybe_start_network() do
+    with {:ok, file} <- PocketOS.File.open("FS0:/wifi.sxp", [:read]),
+         {:ok, data} <- PocketOS.File.read(file, 1024) do
+      creds =
+        data
+        |> :sexp_lexer.string()
+        |> :sexp_parser.parse()
+        |> Enum.map(&List.to_tuple/1)
+
+      IO.puts(~s(Will connect to "#{creds[:ssid]}".))
+
+      case :network.wait_for_sta(creds) do
+        :ok ->
+          IO.puts("WLAN AP ready. Waiting connections.\n")
+          :ok
+
+        {:ok, {address, netmask, gateway} = ips} ->
+          IO.puts("Acquired IP address:  #{inspect(ips)}\n")
+          :ok
+
+        error ->
+          IO.puts("An error occurred starting network: #{inspect(error)}\n")
+          :ok
+      end
+    end
   end
 
   defp recv_loop() do

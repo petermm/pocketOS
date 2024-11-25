@@ -1,0 +1,4 @@
+(
+    (ssid "My SSID here")
+    (psk "My password here")
+)
