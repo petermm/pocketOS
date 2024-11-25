@@ -12,6 +12,12 @@ defmodule HAL do
   end
 
   def init("linux") do
+    with {:ok, _} <- FSRegistry.start_link(),
+         {:ok, fs0} <- StackedFS.start_link("./data/"),
+         :ok <- FSRegistry.register_fs("FS0", fs0) do
+      IO.puts("Registered fs: ./data as FS0")
+    end
+
     open_sdl_display()
   end
 
@@ -41,7 +47,21 @@ defmodule HAL do
       :gpio.digital_write(backlight_gpio, :high)
     end)
 
-    open_ili9342c_display("t-deck")
+    ili = open_ili9342c_display("t-deck")
+
+    IO.puts("Mounting SD")
+
+    with spi_host when spi_host != :undefined <- :erlang.whereis(:main_spi),
+         {:ok, ref} <- :esp.mount("sdspi", "/sdcard", :fat, spi_host: spi_host, cs: 39),
+         {:ok, _} <- FSRegistry.start_link(),
+         {:ok, fs0} <- StackedFS.start_link("/sdcard/"),
+         :ok <- FSRegistry.register_fs("FS0", fs0) do
+      IO.puts("Mounted SD")
+    else
+      error -> IO.puts("Failed SD mount: #{inspect(error)}")
+    end
+
+    ili
   end
 
   defp open_sdl_display do

@@ -295,26 +295,23 @@ defmodule UI.Map do
   end
 
   def do_get_tile_cache(zoom, tile_x, tile_y) do
-    with {:ok, fd} <-
-           :atomvm.posix_open("/sdcard/#{fat_file_name(zoom, tile_x, tile_y)}", [:o_rdonly]),
-         {:ok, bin} <- :atomvm.posix_read(fd, 262_144),
-         :ok <- :atomvm.posix_close(fd) do
+    with {:ok, file} <-
+           PocketOS.File.open("FS0:/#{fat_file_name(zoom, tile_x, tile_y)}", [:read]),
+         {:ok, bin} <- PocketOS.File.read(file, 262_144),
+         :ok <- PocketOS.File.close(file) do
       IO.puts("Got file from cache")
       {:ok, bin}
     else
       _ ->
+        IO.puts("File not in cache")
         {:ok, bin} = do_get_tile_network(zoom, tile_x, tile_y)
         expected_size = byte_size(bin)
 
-        with {:ok, new_fd} <-
-               :atomvm.posix_open(
-                 "/sdcard/#{fat_file_name(zoom, tile_x, tile_y)}",
-                 [:o_rdwr, :o_creat],
-                 0o644
-               ),
-             {:ok, ^expected_size} <- :atomvm.posix_write(new_fd, bin) do
+        with {:ok, file} <-
+               PocketOS.File.open("FS0:/#{fat_file_name(zoom, tile_x, tile_y)}", [:write]),
+             {:ok, ^expected_size} <- PocketOS.File.write(file, bin) do
           IO.puts("Saved file to cache")
-          :atomvm.posix_close(new_fd)
+          PocketOS.File.close(file)
         end
 
         {:ok, bin}
@@ -408,13 +405,6 @@ defmodule UI.Map do
   end
 
   def handle_event(:quit, :clicked, _ui, state) do
-    with fsmount when is_pid(fsmount) <- :erlang.whereis(:fsmount) do
-      send(fsmount, :umount)
-    else
-      error ->
-        IO.puts("No fsmount: #{inspect(error)}")
-    end
-
     {:stop, :normal, state}
   end
 
