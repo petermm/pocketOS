@@ -269,9 +269,11 @@ defmodule UI.Map do
   end
 
   def init(opts) do
-    {:ok, pid} = :gps_server.start(fn t -> :avm_pubsub.pub(:avm_pubsub, [:gps], t) end)
-
     :avm_pubsub.sub(:avm_pubsub, [:gps])
+
+    if HAL.has_peripheral?("gps") do
+      {:ok, pid} = :gps_server.start(fn t -> :avm_pubsub.pub(:avm_pubsub, [:gps], t) end)
+    end
 
     pos = {0, 0.0, 0.0}
     alt = 0
