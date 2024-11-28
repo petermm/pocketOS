@@ -27,6 +27,7 @@ defmodule Main do
     end
 
     maybe_start_network()
+    maybe_start_init()
 
     recv_loop()
   end
@@ -55,6 +56,24 @@ defmodule Main do
           IO.puts("An error occurred starting network: #{inspect(error)}\n")
           :ok
       end
+    end
+  end
+
+  defp maybe_start_init() do
+    with {:ok, file} <- PocketOS.File.open("FS0:/init.lsp", [:read]),
+         {:ok, data} <- read_all(file) do
+      :alisp.run(data)
+      |> :erlang.display()
+    end
+  end
+
+  defp read_all(file, acc \\ "") do
+    case PocketOS.File.read(file, 1024) do
+      {:ok, data} when byte_size(data) < 1024 ->
+        {:ok, acc <> data}
+
+      {:ok, data} ->
+        read_all(file, acc <> data)
     end
   end
 
