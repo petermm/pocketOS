@@ -26,6 +26,10 @@ do_main(Argv) ->
     FileData =
         case Fmt of
             "rgba8888" ->
+                case wxImage:hasAlpha(Image) of
+                    true -> true;
+                    false -> wxImage:initAlpha(Image)
+                end,
                 true = wxImage:hasAlpha(Image),
                 AData = wxImage:getAlpha(Image),
                 to_rgba(RGBData, AData, Header)
