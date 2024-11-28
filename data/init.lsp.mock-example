@@ -1,0 +1,43 @@
+(progn
+    (Elixir.MeshtasticCallbacks:init)
+
+    (let ((send-message (lambda (packetid text)
+        (Elixir.MeshtasticCallbacks:message_cb
+            (maps:from_list (list
+                      (tuple
+                        (quote message)
+                        (maps:from_list (list
+                                          (tuple (quote portnum) (quote TEXT_MESSAGE_APP))
+                                          (tuple (quote payload) text))))
+                      (tuple (quote packet_id) packetid)))))))
+
+
+      (funcall send-message 1 "Hello")
+
+      (erlang:spawn (lambda ()
+                        (timer:sleep 15000)
+                        (funcall send-message 2 "World"))))
+
+    (let ((pub-gps (lambda (gpstokens)
+                  (avm_pubsub:pub
+                    (quote avm_pubsub)
+                    (quote (gps))
+                    (erlang:element 2
+                        (nmea_parser:parse gpstokens))))))
+
+      (erlang:spawn (lambda ()
+                       (timer:sleep 12000)
+                       (funcall pub-gps (quote ("GPGSV" "4" "1" "16" "02" "82" "150" "53" "11" "78"
+                                        "139" "" "12" "72" "191" "53" "25" "50" "296" "51")))))
+
+      (erlang:spawn (lambda ()
+                       (timer:sleep 22000)
+                       (funcall pub-gps (quote ("GNRMC" "163445.00" "A" "4524.46341" "N" "01153.19655"
+                                        "E" "0.153" "" "181124" "" "" "A" "V")))))
+
+      (erlang:spawn (lambda ()
+                       (timer:sleep 30000)
+                       (funcall pub-gps (quote ("GPGGA" "202530.00" "5439.47207" "S" "06507.12794" "W"
+                                        "5" "40" "0.5" "1097.36" "M" "-17.00" "M" "18" "TSTR"))))))
+    (quote ok)
+)
