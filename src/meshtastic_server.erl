@@ -49,13 +49,21 @@ handle_call({handle_payload, {_IfaceId, _Pid}, Payload, _Attributes}, _From, Sta
                 not Duplicated and IsRecipient ->
                     case meshtastic:decrypt(Packet) of
                         #{data := Decrypted} = DecryptedPacket ->
-                            Message = meshtastic_proto:decode(Decrypted),
-                            DecodedPacket = DecryptedPacket#{message => Message},
-                            maybe_callback(State#state.callbacks, message_cb, DecodedPacket),
-                            RebroadcastState = maybe_rebroadcast(Packet, State#state{
-                                last_seen = PrunedLastSeen
-                            }),
-                            {reply, ok, RebroadcastState};
+                            try meshtastic_proto:decode(Decrypted) of
+                                Message ->
+                                    DecodedPacket = DecryptedPacket#{message => Message},
+                                    maybe_callback(
+                                        State#state.callbacks, message_cb, DecodedPacket
+                                    ),
+                                    RebroadcastState = maybe_rebroadcast(Packet, State#state{
+                                        last_seen = PrunedLastSeen
+                                    }),
+                                    {reply, ok, RebroadcastState}
+                            catch
+                                _:_ ->
+                                    io:format("Failed protobuf decode: ~p.~n", [Decrypted]),
+                                    {reply, discard, State}
+                            end;
                         Undecryptable ->
                             % We don't update last seen when we receive a corrupt packet
                             % just in case next retransmision is ok
