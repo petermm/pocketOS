@@ -8,6 +8,9 @@ defmodule HAL do
   # @platform {"m5stack", "faces"}
   # @platform "t-deck"
   @platform "t-pager"
+  # Board info: https://github.com/cyberman54/ESP32-Paxcounter/blob/master/shared/hal/ttgobeam10.h
+  # https://doc.riot-os.org/group__boards__esp32__ttgo-t-beam.html
+  # @platform "t-beam1.0"
 
   def init() do
     IO.puts("Platform is: #{inspect(@platform)}")
@@ -314,6 +317,26 @@ defmodule HAL do
     spi
   end
 
+  defp open_display_spi_host("t-beam1.0") do
+    spi_opts = %{
+      bus_config: %{sclk: 5, mosi: 27, miso: 19, peripheral: "spi2"},
+      device_config: %{
+        radio: %{
+          clock_speed_hz: 1_000_000,
+          mode: 0,
+          cs: 18,
+          address_len_bits: 0
+        }
+      }
+    }
+
+    spi = :spi.open(spi_opts)
+
+    true = :erlang.register(:main_spi, spi)
+
+    spi
+  end
+
   defp open_display_spi_host({"m5stack", "faces"}) do
     spi_opts = %{
       bus_config: %{mosi: 23, sclk: 18, peripheral: "spi2"},
@@ -355,6 +378,8 @@ defmodule HAL do
   defp has_peripheral?("t-deck", "gps"), do: true
   defp has_peripheral?("t-pager", "radio"), do: true
   defp has_peripheral?("t-pager", "gps"), do: true
+  defp has_peripheral?("t-beam1.0", "radio"), do: true
+  defp has_peripheral?("t-beam1.0", "gps"), do: true
   defp has_peripheral?(_, _), do: false
 
   def get_peripheral_config(periph) do
@@ -397,6 +422,43 @@ defmodule HAL do
     end
   end
 
+  defp get_peripheral_config("t-beam1.0", "radio") do
+    case :erlang.whereis(:main_spi) do
+      :undefined ->
+        :error
+
+      # const lmic_pinmap lmic_pins = {
+      #   .nss = 18, CS!
+      #   .rxtx = LMIC_UNUSED_PIN,
+      #   .rst = 23,
+      #   .dio = {/*dio0*/ 26, /*dio1*/ 33, /*dio2*/ 32}
+      # }
+
+      # const lmic_pinmap lmic_pins = {
+      #   .nss = 18,
+      #   .rxtx = LMIC_UNUSED_PIN,
+      #   .rst = 23,
+      #   .dio = {26, 33, 32},  // PIN 33 HAS TO BE PHYSICALLY CONNECTED TO PIN Lora1 OF TTGO
+      # };
+
+      # SPI_DEV(0):CLK	GPIO5
+      # SPI_DEV(0):MISO	GPIO19
+      # SPI_DEV(0):MOSI	GPIO27
+      # SPI_DEV(0):CS0	GPIO18
+
+      spi ->
+        {:ok,
+         %{
+           radio_module: :lora_sx127x,
+           spi: spi,
+           device_name: :radio,
+           irq: 26,
+           reset: 14
+           # busy: 33
+         }}
+    end
+  end
+
   defp get_peripheral_config("t-deck", "gps") do
     {:ok, %{device: "UART1", options: [tx_pin: 43, rx_pin: 44, speed: 38400]}}
   end
@@ -404,6 +466,10 @@ defmodule HAL do
   defp get_peripheral_config("t-pager", "gps") do
     # PPS = 13
     {:ok, %{device: "UART1", options: [tx_pin: 12, rx_pin: 4, speed: 38400]}}
+  end
+
+  defp get_peripheral_config("t-beam1.0", "gps") do
+    {:ok, %{device: "UART1", options: [tx_pin: 34, rx_pin: 12, speed: 9600]}}
   end
 
   def unique_id_256(namespace) do
