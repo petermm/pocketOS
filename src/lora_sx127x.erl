@@ -705,7 +705,7 @@ do_sleep(SPI) ->
     set_mode(SPI, sleep).
 
 to_hex(Value) ->
-    "0x" ++ codec:encode(Value, hex).
+    "0x" ++ string:to_lower(erlang:integer_to_list(Value, 16)).
 
 
 % parse_op_mode(Value) ->
