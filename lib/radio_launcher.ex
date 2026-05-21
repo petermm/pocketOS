@@ -42,7 +42,7 @@ defmodule RadioLauncher do
       user_info: %{
         id: "!#{node_id_string}",
         macaddr: macaddr,
-        hw_model: 50,
+        hw_model: HAL.hw_model(),
         role: role_atom(Map.get(mt_cfg, :role, :client)),
         long_name: long_name,
         short_name: short_name,

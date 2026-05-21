@@ -373,6 +373,12 @@ defmodule HAL do
   defp has_peripheral?("t-pager", "gps"), do: true
   defp has_peripheral?(_, _), do: false
 
+  def hw_model, do: hw_model(@platform)
+
+  defp hw_model("t-deck"), do: 50
+  defp hw_model("t-pager"), do: 103
+  defp hw_model(_), do: 0
+
   def get_peripheral_config(periph) do
     get_peripheral_config(@platform, periph)
   end
