@@ -1,6 +1,7 @@
 defmodule PocketOS.Power do
   @compile {:no_warn_undefined, :esp}
   @compile {:no_warn_undefined, :gpio}
+  @compile {:no_warn_undefined, :network}
 
   @doc """
   Experimental light sleep: blank the screen and idle the CPU until a key/button
@@ -15,8 +16,10 @@ defmodule PocketOS.Power do
 
       sources ->
         radio = Process.whereis(:lora_radio)
+        reconnect_network? = :network.sta_status() not in [:inactive, :disconnected]
         if radio, do: safe_radio(:prepare_for_cpu_sleep, radio)
         HAL.set_backlight(:off)
+        if reconnect_network?, do: :network.sta_disconnect()
 
         Enum.each(sources, fn {pin, level} -> :gpio.wakeup_enable(pin, level) end)
         :esp.sleep_enable_gpio_wakeup()
@@ -24,6 +27,7 @@ defmodule PocketOS.Power do
 
         HAL.set_backlight(:on)
         if radio, do: safe_radio(:resume_after_cpu_sleep, radio)
+        if reconnect_network?, do: :network.sta_connect()
         :ok
     end
   end
